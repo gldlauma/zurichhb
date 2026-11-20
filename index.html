@@ -1,0 +1,2224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zürich HB · Wayfinding</title>
+<!-- iPhone: Home Screen app, status bar, icon; offline copy through sw.js (only over https, i.e. on GitHub Pages) -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HB Wayfinding">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e8ecf0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11161c" media="(prefers-color-scheme: dark)">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:')
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: full-bleed 3D stage; a control rail (left on desktop, bottom sheet on phones) and a selection card.
+   Signage language of a station: condensed caps for storey/track names, mono for heights and times. */
+:root {
+  --bg: #e8ecf0;            /* stage background */
+  --panel: #fbfcfd;
+  --panel-2: #eef1f4;
+  --fg: #16202a;
+  --muted: #5b6875;
+  --line: #cfd6dd;
+  --accent: #c8102e;        /* station red: focus, selection */
+  --accent-fg: #ffffff;
+  --floor: #c9d0d8;
+  --floor-edge: #7d8a97;
+  --hall: #d8dde3;
+  --rail: #8d97a1;
+  --g-318: #2563c9;
+  --g-2122: #d4860b;
+  --g-3134: #0d9b6c;
+  --g-4144: #8b4fd6;
+  --c-stairs: #e7b416;
+  --c-escalator: #e0412f;
+  --c-lift: #0aa0b8;
+  --c-ramp: #8a99a8;
+  --route: #e8338a;
+  --route-sf: #2f9e0f;
+  --closed: #b3261e;
+  --shop: #8a5a2b;          /* shop outlines (solid = mapped, dashed = schematic) */
+  --shop-wall: #7d8590;     /* OSM indoor walls shown with the shops */
+  --wing: #a9b2bc;          /* Nordtrakt / Südtrakt: building wings that hold the shops */
+  --divider: #3f4954;       /* building:part outlines that divide the station building */
+  --tram: #1d6fa5;          /* tram platforms at street level (VBZ blue) */
+  --route-conn: #1b2430;    /* stairs / escalators / lifts on the current route: dark ink, stands out from the route line */
+  --street: #9aa5b1;        /* street-level paths */
+  --shadow: 0 1px 2px rgb(16 24 32 / .08), 0 8px 24px rgb(16 24 32 / .10);
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --panel: #1a2129; --panel-2: #232c36; --fg: #e8edf2; --muted: #9aa7b4; --line: #313c48;
+    --accent: #ff4d5e; --accent-fg: #ffffff; --floor: #3a4552; --floor-edge: #8796a6; --hall: #2f3843; --rail: #5f6c79;
+    --g-318: #4d8df0; --g-2122: #f0a12c; --g-3134: #26c08a; --g-4144: #a77bf0;
+    --c-stairs: #f2c93a; --c-escalator: #ff5a47; --c-lift: #27c6dd; --c-ramp: #9fb0c0;
+    --route: #ff5ca8; --route-sf: #7ad83a; --closed: #ff6b5e; --shop: #d9a066; --shop-wall: #6b7684; --wing: #1c232b; --divider: #b7c1cc; --tram: #4aa3df; --street: #55606c; --route-conn: #f2f4f7;
+    --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --panel: #1a2129; --panel-2: #232c36; --fg: #e8edf2; --muted: #9aa7b4; --line: #313c48;
+  --accent: #ff4d5e; --accent-fg: #ffffff; --floor: #3a4552; --floor-edge: #8796a6; --hall: #2f3843; --rail: #5f6c79;
+  --g-318: #4d8df0; --g-2122: #f0a12c; --g-3134: #26c08a; --g-4144: #a77bf0;
+  --c-stairs: #f2c93a; --c-escalator: #ff5a47; --c-lift: #27c6dd; --c-ramp: #9fb0c0;
+  --route: #ff5ca8; --route-sf: #7ad83a; --closed: #ff6b5e; --shop: #d9a066; --shop-wall: #6b7684; --wing: #1c232b; --divider: #b7c1cc; --tram: #4aa3df; --street: #55606c; --route-conn: #f2f4f7;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .35);
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 var(--f-body); overflow: hidden; -webkit-font-smoothing: antialiased; }
+#stage { position: fixed; inset: 0; touch-action: none; }
+#stage canvas { display: block; }
+#labels { position: fixed; inset: 0; pointer-events: none; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- control rail ---------- */
+.rail {
+  position: fixed; z-index: 5; top: calc(16px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px));
+  width: 300px; max-height: calc(100% - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden;
+}
+.rail-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+.mark { width: 26px; height: 26px; flex: none; border-radius: 4px; background: var(--fg); color: var(--bg); display: grid; place-items: center; font: 700 13px/1 var(--f-display); letter-spacing: .02em; }
+.rail-head h1 { margin: 0; font: 700 20px/1.05 var(--f-display); letter-spacing: .01em; text-wrap: balance; }
+.rail-head p { margin: 1px 0 0; font-size: 12px; color: var(--muted); }
+.sheet-toggle { display: none; margin-left: auto; border: 1px solid var(--line); background: var(--panel-2); border-radius: 6px; padding: 4px 10px; font: 600 13px var(--f-display); letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.rail-body { overflow-y: auto; padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 16px; }
+.sec h2 { margin: 12px 0 8px; font: 600 12px/1 var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+.storeys { display: flex; flex-direction: column; gap: 4px; }
+.storey { display: grid; grid-template-columns: 34px 1fr auto auto; align-items: center; gap: 8px; padding: 6px 6px 6px 4px; border-radius: 7px; border: 1px solid transparent; background: none; text-align: left; cursor: pointer; }
+.storey:hover { background: var(--panel-2); }
+.storey[aria-pressed="true"] { border-color: var(--accent); background: var(--panel-2); }
+.storey .sid { font: 700 15px/1 var(--f-display); text-align: center; padding: 4px 0; border-radius: 4px; background: var(--fg); color: var(--bg); }
+.storey .sname { font-size: 13px; line-height: 1.2; min-width: 0; }
+.storey .sname small { display: block; color: var(--muted); font-size: 11.5px; }
+.storey .sz { font: 500 12px var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.storey .top { border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 2px 6px; font: 600 11px var(--f-display); letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.storey .top:hover { border-color: var(--fg); }
+.dots { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: 1px; }
+.dots i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+
+.slider-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; font-size: 13px; }
+.slider-row output { font: 500 12px var(--f-mono); color: var(--muted); }
+input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 2px 0; }
+
+.views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.views button { border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 8px 4px; font: 600 13px/1.1 var(--f-display); letter-spacing: .03em; cursor: pointer; }
+.views button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+.legend { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; font-size: 13px; }
+.legend div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.legend svg { flex: none; }
+.legend .sw { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+.legend .closed-sw { background: repeating-linear-gradient(45deg, var(--closed) 0 3px, transparent 3px 6px); border: 1px solid var(--closed); }
+.fine { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+
+/* ---------- selection card ---------- */
+.card {
+  position: fixed; z-index: 6; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(16px + env(safe-area-inset-top, 0px));
+  width: 360px; max-height: calc(100% - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 14px 16px 16px;
+}
+.card .eyebrow { font: 600 11.5px var(--f-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.card h3 { margin: 2px 0 6px; font: 700 26px/1.05 var(--f-display); text-wrap: balance; }
+.card p { margin: 6px 0; }
+.card .close { float: right; border: 1px solid var(--line); background: var(--panel-2); width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-size: 16px; line-height: 1; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 999px; padding: 4px 10px; font: 600 13px var(--f-display); letter-spacing: .02em; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.chip i { width: 9px; height: 9px; border-radius: 2px; }
+.pill { display: inline-block; border-radius: 4px; padding: 1px 6px; font: 600 12px var(--f-display); letter-spacing: .04em; }
+.pill.ok { background: color-mix(in srgb, var(--route-sf) 18%, transparent); color: var(--route-sf); }
+.pill.lift { background: color-mix(in srgb, var(--c-lift) 18%, transparent); color: var(--c-lift); }
+.pill.closed { background: color-mix(in srgb, var(--closed) 16%, transparent); color: var(--closed); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 13.5px; margin: 8px 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.routes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.routes li { display: grid; grid-template-columns: 14px 1fr auto; gap: 2px 10px; align-items: start; padding: 8px 10px; border-radius: 8px; background: var(--panel-2); }
+.routes .ln { width: 14px; height: 4px; border-radius: 2px; margin-top: 8px; }
+.routes .ln.dash { background: repeating-linear-gradient(90deg, var(--route-sf) 0 5px, transparent 5px 8px) !important; }
+.routes b { font: 600 14px/1.25 var(--f-display); letter-spacing: .01em; }
+.routes .t { font: 500 13px var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.routes .via { grid-column: 2 / -1; font-size: 12.5px; color: var(--muted); }
+.access { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; margin: 6px 0; }
+.access span { display: inline-flex; align-items: center; gap: 6px; }
+.banner { margin: 8px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--closed); color: var(--closed); font-size: 13.5px; background: color-mix(in srgb, var(--closed) 8%, transparent); }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.loading { position: fixed; inset: 0; display: grid; place-items: center; font: 600 16px var(--f-display); letter-spacing: .06em; color: var(--muted); }
+.error { max-width: 46ch; padding: 16px; text-align: left; font: 400 14px var(--f-body); color: var(--fg); }
+
+/* ---------- labels in the 3D scene ---------- */
+.lb { pointer-events: none; white-space: nowrap; transform: translateY(-2px); }
+.lb-track { pointer-events: auto; cursor: pointer; display: inline-flex; gap: 2px; padding: 2px; border-radius: 5px; background: var(--fg); box-shadow: 0 1px 3px rgb(0 0 0 / .25); }
+.lb-track span { min-width: 20px; padding: 1px 4px; text-align: center; border-radius: 3px; color: #fff; font: 700 14px/1.15 var(--f-display); }
+.lb-area { font: 600 12px var(--f-display); letter-spacing: .03em; color: var(--fg); text-shadow: 0 0 3px var(--bg), 0 0 6px var(--bg); }
+.lb-storey { font: 700 13px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); text-shadow: 0 0 4px var(--bg); }
+.lb-storey b { color: var(--fg); margin-right: 6px; }
+.lb-track .closed-tag { font: 700 11px/1.15 var(--f-display); font-style: normal; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: var(--closed); padding: 2px 6px; border-radius: 3px; align-self: center; }
+.lb-shop { font: 500 11px var(--f-body); color: var(--fg); text-shadow: 0 0 2px var(--bg), 0 0 4px var(--bg), 0 0 6px var(--bg); }
+.variant { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--shop); color: #fff; font: 700 11px/1.4 var(--f-display); letter-spacing: .08em; text-transform: uppercase; vertical-align: 2px; }
+.check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 10px; cursor: pointer; }
+.check-row input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+/* ---------- route search ---------- */
+.route-form { display: grid; grid-template-columns: 1fr 38px; gap: 6px 8px; align-items: end; }
+.field { display: flex; flex-direction: column; gap: 3px; position: relative; min-width: 0; }
+.field label { font: 600 11.5px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.field label b { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; color: #fff; font: 700 10.5px/1 var(--f-display); letter-spacing: 0; }
+.field input { font: 15px/1.2 var(--f-body); color: var(--fg); background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 8px 28px 8px 10px; width: 100%; box-sizing: border-box; min-width: 0; }
+.field input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+.field .clr { position: absolute; right: 4px; bottom: 5px; width: 24px; height: 24px; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 15px; }
+.swap { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 38px; height: 38px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 8px; cursor: pointer; font-size: 17px; }
+.sugg { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; margin-top: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); max-height: 280px; overflow-y: auto; }
+.sugg button { display: grid; grid-template-columns: 26px 1fr; gap: 0 8px; align-items: center; width: 100%; text-align: left; padding: 7px 10px; border: 0; background: none; cursor: pointer; font-size: 14px; }
+.sugg button[aria-selected="true"], .sugg button:hover { background: var(--panel-2); }
+.sugg .k { width: 24px; height: 20px; border-radius: 4px; display: grid; place-items: center; font: 700 11px/1 var(--f-display); color: #fff; background: var(--fg); }
+.sugg small { grid-column: 2; color: var(--muted); font-size: 11.5px; }
+.sugg .none { padding: 8px 10px; color: var(--muted); font-size: 13px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-top: 10px; }
+.seg button { border: 0; border-left: 1px solid var(--line); background: var(--panel-2); padding: 8px 4px; font: 600 13px/1.1 var(--f-display); letter-spacing: .02em; cursor: pointer; }
+.seg button:first-child { border-left: 0; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.btn-row { display: flex; gap: 6px; margin-top: 8px; }
+.btn-row button { flex: 1; border: 1px solid var(--line); background: var(--panel-2); border-radius: 7px; padding: 7px 6px; font: 600 13px var(--f-display); letter-spacing: .03em; cursor: pointer; }
+.btn-row button:disabled { opacity: .45; cursor: default; }
+.rsum { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 2px; }
+.rsum .big { font: 700 28px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.rsum .muted { font-size: 13.5px; }
+.steps { list-style: none; margin: 10px 0 0; padding: 0; }
+.steps li { display: grid; grid-template-columns: 24px 1fr auto; gap: 1px 10px; align-items: start; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.3; }
+.steps li .ic { display: grid; place-items: center; height: 20px; }
+.steps li .m { font: 500 12.5px var(--f-mono); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.steps li small { grid-column: 2 / -1; color: var(--muted); font-size: 12px; }
+.steps .pinb { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 11px/1 var(--f-display); }
+.lb-pin { pointer-events: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: #fff; font: 700 13px/1 var(--f-display); border: 2px solid #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .35); }
+.warn { margin: 8px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--closed); color: var(--closed); font-size: 13.5px; background: color-mix(in srgb, var(--closed) 8%, transparent); }
+.lb-tram { pointer-events: auto; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px 2px 2px; border-radius: 5px; background: var(--panel); border: 1px solid var(--tram); box-shadow: 0 1px 3px rgb(0 0 0 / .2); font: 600 12px/1.2 var(--f-display); color: var(--fg); }
+.lb-tram .t { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 3px; background: var(--tram); color: #fff; font: 700 11px/1 var(--f-display); }
+.lb-tram .ln { color: var(--muted); font-weight: 500; }
+.lb-tram.closed { border-color: var(--closed); }
+.lb-tram.closed .t { background: var(--closed); }
+.lb-closed { font: 700 11.5px var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: #fff; background: var(--closed); padding: 2px 6px; border-radius: 3px; }
+
+/* ================= mobile version (iPhone first) =================
+   A bottom sheet holds the route search, the result and the step-by-step guide; a top bar holds Fit / Overview / More.
+   Everything else of the desktop rail (storeys, view, layers, legend) sits behind "More". */
+:root { --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px); --kb: 0px; }
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
+html, body { overscroll-behavior: none; }
+body { position: fixed; inset: 0; -webkit-tap-highlight-color: transparent; font-size: 16px; }
+.lb-area { font-size: 11px; }
+.lb-track span { font-size: 12.5px; min-width: 17px; }
+.lb-pin { width: 28px; height: 28px; font-size: 14px; }
+
+/* top bar */
+.topbar { position: fixed; z-index: 7; top: calc(8px + var(--sat)); left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px));
+  display: flex; align-items: center; gap: 8px; pointer-events: none; }
+.topbar > * { pointer-events: auto; }
+.brand { display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 0 12px 0 8px; box-shadow: var(--shadow); font: 700 17px/1 var(--f-display); letter-spacing: .01em; white-space: nowrap; }
+.storey-chip { position: fixed; z-index: 7; top: calc(60px + var(--sat)); left: max(10px, env(safe-area-inset-left, 0px)); max-width: calc(100% - 20px); height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel);
+  box-shadow: var(--shadow); font: 600 14px/1 var(--f-display); letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.storey-chip b { background: var(--fg); color: var(--bg); border-radius: 4px; padding: 3px 5px; font-size: 13px; }
+.topbar .spacer { flex: 1; }
+.fab { flex: none; width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); box-shadow: var(--shadow);
+  display: grid; place-items: center; cursor: pointer; padding: 0; }
+.fab svg { width: 22px; height: 22px; }
+
+/* bottom sheet: three heights (peek, half, full); drag the handle or tap it */
+.sheet { position: fixed; z-index: 6; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); bottom: var(--kb);
+  height: 240px; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-bottom: 0;
+  border-radius: 16px 16px 0 0; box-shadow: 0 -2px 6px rgb(16 24 32 / .06), 0 -8px 28px rgb(16 24 32 / .12); transition: height .22s ease; }
+.sheet.dragging { transition: none; }
+@media (min-width: 640px) { .sheet { left: 50%; right: auto; width: 460px; margin-left: -230px; } }
+/* phone held sideways: the sheet becomes a side panel on the left, below the top bar */
+@media (orientation: landscape) and (max-height: 520px) {
+  .sheet { left: max(8px, env(safe-area-inset-left, 0px)); right: auto; margin-left: 0; width: 360px; top: calc(60px + var(--sat)); bottom: calc(8px + var(--kb));
+    height: auto !important; border-radius: 16px; border-bottom: 1px solid var(--line); transition: none; }
+  .sheet .grab { display: none; }
+  .sheet-body { padding-top: 12px; }
+  .peek { left: calc(max(8px, env(safe-area-inset-left, 0px)) + 370px); right: max(10px, env(safe-area-inset-right, 0px)); margin: 0; }
+  .storey-chip { left: calc(max(8px, env(safe-area-inset-left, 0px)) + 370px); }
+}
+.grab { flex: none; height: 28px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+.grab span { width: 42px; height: 5px; border-radius: 3px; background: var(--line); }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 0 16px; }
+.sheet-inner { padding-bottom: calc(14px + var(--sab)); }
+.sheet.kb .sheet-inner { padding-bottom: 10px; }
+.card { position: static; width: auto; max-height: none; overflow: visible; background: none; border: 0; box-shadow: none; padding: 0; }
+.card h3 { font-size: 22px; }
+.card .close { width: 40px; height: 40px; font-size: 20px; border-radius: 10px; }
+
+/* route form */
+#routeSec h2 { display: none; }
+.route-form { grid-template-columns: 1fr 44px; gap: 8px 8px; }
+.field label { font-size: 12px; }
+.field label b { width: 18px; height: 18px; font-size: 11px; }
+.field input { font-size: 16px; padding: 11px 40px 11px 12px; border-radius: 10px; }   /* 16 px: Safari does not zoom in */
+.field .clr { width: 40px; height: 40px; right: 2px; bottom: 2px; font-size: 20px; }
+.swap { width: 44px; height: 44px; border-radius: 10px; font-size: 19px; }
+.sugg { position: static; margin-top: 4px; max-height: none; box-shadow: none; border-radius: 10px; }
+.sugg button { min-height: 46px; padding: 8px 10px; font-size: 15px; grid-template-columns: 30px 1fr; }
+.sugg .k { width: 28px; height: 22px; font-size: 12px; }
+.sugg small { font-size: 12.5px; }
+.seg { border-radius: 10px; }
+.seg button { min-height: 44px; font-size: 15px; }
+.fine { font-size: 12.5px; }
+
+/* route summary row (when the form is folded away) */
+.rsrow { display: flex; align-items: center; gap: 10px; padding: 2px 0 10px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+.rsrow .pl { flex: 1; min-width: 0; display: grid; gap: 4px; font: 600 16px/1.2 var(--f-display); letter-spacing: .01em; }
+.rsrow .pl span { display: flex; align-items: center; gap: 8px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rsrow .pl small { font: 500 13px var(--f-body); color: var(--muted); }
+.pinb { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: #fff; font: 700 12px/1 var(--f-display); }
+.btn, .linkbtn { cursor: pointer; font: 700 16px/1 var(--f-display); letter-spacing: .03em; }
+.btn { min-height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); color: var(--fg); padding: 0 14px; }
+.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.small { min-height: 40px; font-size: 15px; padding: 0 12px; border-radius: 10px; }
+.linkbtn { border: 0; background: none; color: var(--fg); text-decoration: underline; text-underline-offset: 3px; padding: 10px 4px; font-size: 15px; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; }
+.rsum .big { font-size: 30px; }
+.rsum .muted { font-size: 14.5px; }
+.steps li { grid-template-columns: 28px 1fr auto; padding: 11px 2px; font-size: 15px; cursor: pointer; border-radius: 6px; }
+.steps li:active { background: var(--panel-2); }
+.steps li .m { font-size: 13px; }
+.steps .pinb { width: 22px; height: 22px; font-size: 12px; }
+.hint { margin: 6px 0 4px; font-size: 14.5px; color: var(--muted); }
+
+/* step-by-step guide */
+.stepview { padding-top: 2px; }
+.sv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sv-head .eyebrow { font-size: 13px; }
+.sv-main { display: grid; grid-template-columns: 52px 1fr; gap: 12px; align-items: start; margin: 6px 0 12px; min-height: 64px; }
+.sv-ic { width: 52px; height: 52px; border-radius: 12px; background: var(--panel-2); display: grid; place-items: center; }
+.sv-ic svg { width: 36px; height: 28px; }
+.sv-ic .pinb { width: 30px; height: 30px; font-size: 15px; }
+.sv-text { font-size: 18px; line-height: 1.3; }
+.sv-text b { font-family: var(--f-display); font-size: 20px; letter-spacing: .01em; }
+.sv-m { margin-top: 4px; font: 500 14px var(--f-mono); color: var(--muted); }
+.sv-text small { display: block; color: var(--muted); font-size: 13.5px; margin-top: 2px; }
+.sv-nav { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
+
+/* tap info ("peek") card at the top, does not change the route */
+.peek { position: fixed; z-index: 8; top: calc(60px + var(--sat)); left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px));
+  max-width: 440px; margin: 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 12px 14px 12px; }
+.peek .close { float: right; width: 40px; height: 40px; margin: -4px -6px 0 6px; border: 1px solid var(--line); background: var(--panel-2); border-radius: 10px; font-size: 20px; cursor: pointer; }
+.peek h3 { margin: 0 0 4px; font: 700 21px/1.1 var(--f-display); }
+.peek .eyebrow { font: 600 12px var(--f-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.peek p { margin: 4px 0; font-size: 14.5px; }
+.pk-rows { display: grid; gap: 8px; margin-top: 10px; }
+.pk-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; align-items: center; }
+.pk-row .k { min-width: 30px; height: 30px; border-radius: 6px; display: grid; place-items: center; color: #fff; font: 700 15px/1 var(--f-display); padding: 0 4px; }
+
+/* A / B badges drawn on the text colour: letter in the background colour, so they read in dark mode too */
+.pinb[style*="--fg"], .lb-pin[style*="--fg"] { color: var(--bg); }
+/* "More" panel: the desktop rail as a full-screen panel */
+.rail { top: 0; left: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 0; border: 0; z-index: 9;
+  padding-top: var(--sat); padding-bottom: var(--sab); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); box-sizing: border-box; }
+@media (min-width: 640px) { .rail { left: auto; width: 420px; border-left: 1px solid var(--line); } }
+.rail-head { padding: 10px 16px; }
+.rail-body { padding: 4px 16px 24px; }
+.sheet-toggle { display: inline-block; min-height: 40px; padding: 0 14px; font-size: 15px; border-radius: 10px; }
+.storey { padding: 8px 6px 8px 4px; }
+.storey .top { min-height: 34px; padding: 0 10px; font-size: 12px; }
+.views button { min-height: 44px; font-size: 14px; }
+.check-row { font-size: 15px; min-height: 40px; margin-top: 4px; }
+.check-row input { width: 20px; height: 20px; }
+.legend { font-size: 14px; grid-template-columns: 1fr; }
+.about { font-size: 14px; color: var(--muted); }
+.about p { margin: 6px 0; }
+
+.lost { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 88%, transparent); padding: 24px; text-align: center; }
+.lost div { max-width: 32ch; font-size: 16px; }
+.lost .btn { margin-top: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.min.js",
+  "three/addons/": "./vendor/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage" aria-label="3D model of Zürich HB"></div>
+<div id="labels"></div>
+<div class="loading" id="loading">Loading Zürich HB…</div>
+
+<header class="topbar" id="topbar" hidden>
+  <div class="brand"><span class="mark" aria-hidden="true">HB</span>Zürich HB</div>
+  <span class="spacer"></span>
+  <button class="fab" id="fitBtn" aria-label="Show the whole route" title="Show the whole route" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button class="fab" id="homeBtn" aria-label="Overview of the station" title="Overview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7M6 9.5V20h12V9.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button class="fab" id="moreBtn" aria-label="More: storeys, view, legend" aria-expanded="false" aria-controls="rail"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg></button>
+</header>
+
+<button class="storey-chip" id="storeyChip" hidden></button>
+<div class="peek" id="peek" hidden></div>
+
+<section class="sheet" id="sheet" aria-label="Route" hidden>
+  <div class="grab" id="grab" role="button" tabindex="0" aria-label="Make the panel larger or smaller"><span></span></div>
+  <div class="sheet-body" id="sheetBody"><div class="sheet-inner" id="sheetInner">
+    <section class="sec" id="routeSec">
+      <h2>Route</h2>
+      <div class="route-form">
+        <div class="field">
+          <label for="fromIn"><b style="background:var(--fg)">A</b>From</label>
+          <input id="fromIn" type="text" placeholder="Track, tram stop or exit" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="next" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="fromSugg">
+          <button class="clr" data-clear="from" aria-label="Clear start" hidden>×</button>
+          <div class="sugg" id="fromSugg" role="listbox" hidden></div>
+        </div>
+        <div class="field">
+          <label for="toIn"><b style="background:var(--route)">B</b>To</label>
+          <input id="toIn" type="text" placeholder="Track, tram stop or exit" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="toSugg">
+          <button class="clr" data-clear="to" aria-label="Clear destination" hidden>×</button>
+          <div class="sugg" id="toSugg" role="listbox" hidden></div>
+        </div>
+        <button class="swap" id="swapBtn" aria-label="Swap start and destination" title="Swap">⇅</button>
+      </div>
+      <div class="seg" id="profileSeg" role="group" aria-label="Accessibility">
+        <button data-prof="standard" aria-pressed="true">Standard</button>
+        <button data-prof="no_stairs" aria-pressed="false">No stairs</button>
+        <button data-prof="step_free" aria-pressed="false">Step-free</button>
+      </div>
+      <p class="fine" id="profNote"></p>
+    </section>
+    <div class="rsrow" id="routeSummary" hidden></div>
+    <article class="card" id="card" hidden></article>
+  </div></div>
+</section>
+
+<aside class="rail" id="rail" hidden>
+  <div class="rail-head">
+    <div class="mark" aria-hidden="true">HB</div>
+    <div>
+      <h1>Zürich HB Levels<span class="variant">mobile</span></h1>
+      <p>Storeys, view, layers and legend</p>
+    </div>
+    <button class="sheet-toggle" id="moreClose">Done</button>
+  </div>
+  <div class="rail-body" id="railBody">
+    <section class="sec">
+      <h2>Storeys</h2>
+      <div class="storeys" id="storeys"></div>
+      <p class="fine">Tap a storey to focus it; the others fade. <b>Top</b> looks straight down at that storey.</p>
+    </section>
+    <section class="sec">
+      <h2>View</h2>
+      <div class="views" id="views">
+        <button data-view="overview" aria-pressed="true">Overview</button>
+        <button data-view="top" aria-pressed="false">Top-down</button>
+        <button data-view="section" aria-pressed="false">Cross-section</button>
+      </div>
+      <div class="slider-row" id="cutRow" hidden style="margin-top:10px">
+        <label for="cut">Section cut (from west end)</label><output id="cutOut"></output>
+        <input type="range" id="cut" min="0" max="100" value="55">
+      </div>
+    </section>
+    <section class="sec">
+      <h2>Layers</h2>
+      <div class="slider-row">
+        <label for="explode">Pull storeys apart</label><output id="explodeOut">40%</output>
+        <input type="range" id="explode" min="0" max="100" value="40">
+      </div>
+      <label class="check-row"><input type="checkbox" id="routeOnly"> Fade storeys the route does not use</label>
+      <label class="check-row"><input type="checkbox" id="shopsToggle" checked> Hall dividers and shop wings (ground floor)</label>
+    </section>
+    <section class="sec">
+      <h2>Legend</h2>
+      <div class="legend" id="legend"></div>
+    </section>
+    <section class="sec about">
+      <h2>About</h2>
+      <div id="about"></div>
+      <p class="fine" id="attribution"></p>
+    </section>
+  </div>
+</aside>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+
+// ------------------------------------------------------------------ data loading
+async function loadScene() {
+  if (location.protocol !== 'file:') try {
+    const r = await fetch('data/hb_scene.json');
+    if (r.ok) return await r.json();
+  } catch (e) { /* file:// or offline: fall back to the script copy */ }
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'data/hb_scene.js'; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  return window.HB_SCENE;
+}
+
+async function loadShops() {
+  if (location.protocol !== 'file:') try {
+    const r = await fetch('data/hb_shops.json');
+    if (r.ok) return await r.json();
+  } catch (e) { /* fall back to the script copy */ }
+  try {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'data/hb_shops.js'; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+    return window.HB_SHOPS;
+  } catch (e) { return null; }     // the viewer still works without shops
+}
+
+async function loadNav() {
+  if (location.protocol !== 'file:') try {
+    const r = await fetch('data/hb_nav.json');
+    if (r.ok) return await r.json();
+  } catch (e) { /* fall back to the script copy */ }
+  try {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'data/hb_nav.js'; s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+    return window.HB_NAV;
+  } catch (e) { return null; }     // without it the route search is switched off
+}
+
+let D, SH, NAV;
+try { [D, SH, NAV] = await Promise.all([loadScene(), loadShops(), loadNav()]); }
+catch (e) {
+  document.getElementById('loading').innerHTML = '<div class="error"><b>The station data did not load.</b><br>Run <span class="mono">python3 _scripts/build_viewer_data.py</span> so that <span class="mono">app/data/hb_scene.js</span> exists, then reload this page.</div>';
+  throw e;
+}
+
+// ------------------------------------------------------------------ constants & helpers
+const VEX = 2.5;                // vertical exaggeration (station is 600 m long but only 16 m deep)
+const GAP = 34;                 // extra metres between storeys at 100 % explode
+const REF = D.meta.ref_z;
+const TYPES = D.meta.types;     // walkway, stairs, escalator, lift, ramp
+const T = Object.fromEntries(TYPES.map((t, i) => [t, i]));
+const GROUPS = {
+  'HB_ground_3-18': { label: '3–18', name: 'Gleise 3–18', token: '--g-318' },
+  'SZU_21-22': { label: '21–22', name: 'SZU, Gleise 21–22', token: '--g-2122' },
+  'Loewenstrasse_31-34': { label: '31–34', name: 'Löwenstrasse, Gleise 31–34', token: '--g-3134' },
+  'Museumstrasse_41-44': { label: '41–44', name: 'Museumstrasse, Gleise 41–44', token: '--g-4144' },
+};
+const STOREY_SHORT = { E0: 'Erdgeschoss', Z1: 'Upper passages', Z2: 'Lower passages', U1: 'SZU station', U2: 'Deep platforms' };
+const STOREY_SUB = {
+  E0: 'Querhalle, Haupthalle, tracks 3–18', Z1: 'ShopVille Bahnhofplatz, Passage Sihlquai', Z2: 'Passages, Halle Landesmuseum',
+  U1: 'Tracks 21–22 (closed)', U2: 'Tracks 31–34 and 41–44',
+};
+const zoneById = Object.fromEntries(D.zones.map(z => [z.id, z]));
+const storeyById = Object.fromEntries(D.storeys.map(s => [s.id, s]));
+const zoneOrder = D.zones.map(z => storeyById[z.storey].order);      // by zone index
+const zoneStorey = D.zones.map(z => z.storey);
+const zoneIdx = Object.fromEntries(D.zones.map((z, i) => [z.id, i]));
+const N = D.nodes;              // [x, y, z, zoneIdx, kindIdx]
+const E = D.edges;              // [from, to, type, length, time, flags]
+// closures from hb_closures.json that are in force today (date-based; the SZU station reopens on 13.12.2026)
+const TODAY = new Date().toISOString().slice(0, 10);
+const isoDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
+// last day of a closure: an ISO date, or "YYYY-MM (mid-…)" = the 15th, or "YYYY-MM …" = the last day of that month
+function closureEnd(c) {
+  if (isoDate(c.until)) return c.until;
+  const m = /^(\d{4})-(\d{2})/.exec(c.until || '');
+  if (!m) return null;
+  if (/mid/i.test(c.until)) return `${m[1]}-${m[2]}-15`;
+  const last = new Date(Date.UTC(+m[1], +m[2], 0)).getUTCDate();
+  return `${m[1]}-${m[2]}-${String(last).padStart(2, '0')}`;
+}
+const fmtDay = (iso) => iso.split('-').reverse().join('.');
+const ACTIVE_CLOSURES = (D.closures || []).filter(c => { const end = closureEnd(c); return end && TODAY <= end && (!isoDate(c.from) || TODAY >= c.from); });
+const CLOSED_EDGE_SET = new Set();
+for (const c of ACTIVE_CLOSURES) for (const k of ((NAV && NAV.closure_edges && NAV.closure_edges[c.id]) || [])) CLOSED_EDGE_SET.add(k);
+if (!NAV || !NAV.closure_edges) E.forEach((e, k) => { if (e[5] & 2 && ACTIVE_CLOSURES.length) CLOSED_EDGE_SET.add(k); });
+const CLOSED_EDGES_ACTIVE = CLOSED_EDGE_SET.size > 0;
+const css = () => getComputedStyle(document.documentElement);
+const col = (name) => new THREE.Color(css().getPropertyValue(name).trim() || '#888');
+const fmtTime = (s) => { s = Math.round(s); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// scene centre
+let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+for (const a of D.areas) for (const poly of a.polys) for (const r of poly) for (let i = 0; i < r.length; i += 2) {
+  minX = Math.min(minX, r[i]); maxX = Math.max(maxX, r[i]); minY = Math.min(minY, r[i + 1]); maxY = Math.max(maxY, r[i + 1]);
+}
+const CX = (minX + maxX) / 2, CY = (minY + maxY) / 2;
+const SPAN = Math.max(maxX - minX, maxY - minY);
+const W = (x, y) => [x - CX, -(y - CY)];       // plan -> world X, Z
+
+const nav = { from: null, to: null, profile: 'standard', route: null, fadeOthers: false, routeStoreys: new Set(), message: null };
+const state = { shops: true, explode: 0.4, focus: null, view: 'overview', topStorey: 'E0', cut: 0.55, sel: null, tracks: null };
+const storeyOffset = (order) => -order * state.explode * GAP;
+const yOfZone = (z, zi) => (z - REF) * VEX + storeyOffset(zoneOrder[zi]);
+const nodeWorld = (i) => { const n = N[i]; const [x, z] = W(n[0], n[1]); return new THREE.Vector3(x, yOfZone(n[2], n[3]) + 0.15, z); };
+
+// ------------------------------------------------------------------ renderer, cameras, controls
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.localClippingEnabled = false;
+stage.appendChild(renderer.domElement);
+const labelRenderer = new CSS2DRenderer({ element: document.getElementById('labels') });
+// mobile: draw only when something changed (camera moves, a flight, a recolour, an escalator on the route) to save battery
+let needsRender = true, renderUntil = 0;
+function invalidate(ms = 0) { needsRender = true; if (ms) renderUntil = Math.max(renderUntil, performance.now() + ms); }
+// iOS can drop the WebGL context (e.g. after a long time in the background): offer a reload; the route is kept in the URL
+renderer.domElement.addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  if (document.getElementById('lost')) return;
+  const d = document.createElement('div'); d.className = 'lost'; d.id = 'lost';
+  d.innerHTML = '<div><b>The 3D view was paused by the phone.</b><br>Reload to continue; your route is kept.<br><button class="btn primary" onclick="location.reload()">Reload</button></div>';
+  document.body.appendChild(d);
+});
+
+const scene = new THREE.Scene();
+const persp = new THREE.PerspectiveCamera(40, 1, 1, 6000);
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -5000, 5000);
+let camera = persp;
+let controls;
+function makeControls(cam, target) {
+  if (controls) controls.dispose();
+  controls = new OrbitControls(cam, renderer.domElement);
+  controls.addEventListener('start', () => { flight = null; hidePeek(); });
+  controls.enableDamping = true; controls.dampingFactor = 0.08;
+  controls.screenSpacePanning = true;
+  if (target) controls.target.copy(target);
+  if (cam.isOrthographicCamera) {
+    controls.enableRotate = false;
+    controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+    controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
+  } else {
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.minDistance = 20; controls.maxDistance = 2500;
+    controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+  }
+  controls.update();
+}
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x445566, 1.6);
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-300, 600, 400);
+scene.add(hemi, sun);
+
+// ------------------------------------------------------------------ storeys, floors, rails, labels
+const storeyGroups = {};
+const floorMeshes = [];          // pickable platform floors
+const storeyMats = {};           // storey -> materials to fade
+const labelObjs = [];            // {obj, storey, kind}
+for (const s of D.storeys) {
+  const g = new THREE.Group(); g.name = s.id; g.userData.order = s.order;
+  storeyGroups[s.id] = g; storeyMats[s.id] = []; scene.add(g);
+}
+
+function hatchTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, 64, 64);
+  x.strokeStyle = '#d23c32'; x.lineWidth = 10;
+  for (let i = -64; i < 128; i += 22) { x.beginPath(); x.moveTo(i, 64); x.lineTo(i + 64, 0); x.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 5, 1 / 5);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const HATCH = hatchTexture();
+
+function areaColorToken(a) {
+  if (a.kind === 'platform') return GROUPS[a.group].token;
+  if (a.kind === 'hall') return '--hall';
+  return '--floor';
+}
+const FLOOR_T = 1.2;
+D.areas.forEach((a, ai) => {
+  const zi = zoneIdx[a.zone];
+  const storey = zoneStorey[zi];
+  const shapes = [];
+  for (const poly of a.polys) {
+    const ring = (r) => { const pts = []; for (let i = 0; i < r.length; i += 2) pts.push(new THREE.Vector2(r[i] - CX, r[i + 1] - CY)); return pts; };
+    const shape = new THREE.Shape(ring(poly[0]));
+    for (const h of poly.slice(1)) shape.holes.push(new THREE.Path(ring(h)));
+    shapes.push(shape);
+  }
+  const geo = new THREE.ExtrudeGeometry(shapes, { depth: FLOOR_T, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshLambertMaterial({ color: col(areaColorToken(a)), transparent: true, opacity: 1 });
+  if (a.closed) { mat.map = HATCH; }
+  mat.userData = { token: areaColorToken(a), base: 1 };
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = (zoneById[a.zone].z - REF) * VEX - FLOOR_T;
+  mesh.userData = { area: ai };
+  storeyGroups[storey].add(mesh);
+  storeyMats[storey].push(mat);
+  if (a.kind === 'platform') floorMeshes.push(mesh);
+  // outline
+  const lineMat = new THREE.LineBasicMaterial({ color: col('--floor-edge'), transparent: true });
+  lineMat.userData = { token: '--floor-edge', base: 1 };
+  storeyMats[storey].push(lineMat);
+  for (const poly of a.polys) for (const r of poly) {
+    const pts = []; for (let i = 0; i < r.length; i += 2) { const [x, z] = W(r[i], r[i + 1]); pts.push(new THREE.Vector3(x, 0, z)); }
+    const ln = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), lineMat);
+    ln.position.y = (zoneById[a.zone].z - REF) * VEX + 0.02;
+    ln.userData.outlineOf = ai;
+    storeyGroups[storey].add(ln);
+  }
+  // labels
+  let cx = 0, cy = 0, n = 0;
+  const r0 = a.polys[0][0]; for (let i = 0; i < r0.length; i += 2) { cx += r0[i]; cy += r0[i + 1]; n++; }
+  cx /= n; cy /= n;
+  if (a.kind === 'platform') {
+    // label on the platform's centre line, 25 m in from its head (east end)
+    const ax = D.meta.track_axis[0], ay = D.meta.track_axis[1];
+    let best = -Infinity;
+    for (let i = 0; i < r0.length; i += 2) best = Math.max(best, r0[i] * ax + r0[i + 1] * ay);
+    const tc = cx * ax + cy * ay;
+    const shift = Math.max(0, best - tc - 25);
+    cx += ax * shift; cy += ay * shift;
+    const el = document.createElement('div');
+    el.className = 'lb lb-track';
+    el.title = a.name;
+    el.innerHTML = a.tracks.map(t => `<span style="background:var(${GROUPS[a.group].token})">${t}</span>`).join('') + (a.closed ? '<em class="closed-tag">closed until 12.12.</em>' : '');
+    el.addEventListener('click', (ev) => { ev.stopPropagation(); peekArea(ai); });
+    const o = new CSS2DObject(el); const [x, z] = W(cx, cy);
+    o.position.set(x, (zoneById[a.zone].z - REF) * VEX + 1.5, z);
+    storeyGroups[storey].add(o); labelObjs.push({ obj: o, storey, kind: 'track' });
+  }
+});
+for (const lb of D.labels) {
+  const zi = zoneIdx[lb.zone]; const storey = zoneStorey[zi];
+  const el = document.createElement('div'); el.className = 'lb lb-area'; el.textContent = lb.text;
+  const o = new CSS2DObject(el); const [x, z] = W(lb.x, lb.y);
+  o.position.set(x, (zoneById[lb.zone].z - REF) * VEX + 1.2, z);
+  storeyGroups[storey].add(o); labelObjs.push({ obj: o, storey, kind: 'area' });
+}
+// shops: extruded footprints (schematic) on their storey, in a group that the Shops toggle hides
+const SHOPS = [];                 // shop outlines are not drawn in this version: only the hall dividers
+const shopMeshes = [];
+const shopGroups = {};
+const CAT_NAME = { shop: 'Shop', food: 'Food & drink', service: 'Service', kiosk: 'Kiosk' };
+function shopGroupOf(storey) {
+  if (!shopGroups[storey]) { shopGroups[storey] = new THREE.Group(); shopGroups[storey].name = 'shops'; storeyGroups[storey].add(shopGroups[storey]); }
+  return shopGroups[storey];
+}
+// Shops are drawn as flat outlines on the floor: solid = mapped outline or walled room, dashed = schematic.
+// A faint fill keeps them tappable. No labels or markers: the OSM points are not shown.
+const SHOP_FILL = 0.16;
+SHOPS.forEach((sh, si) => {
+  const storey = sh.storey;
+  if (!storeyGroups[storey]) return;
+  const grp = shopGroupOf(storey);
+  const mapped = sh.method === 'osm_outline' || sh.method === 'part_outline';
+  const y0 = (zoneById[sh.zone].z - REF) * VEX;
+  const pts = []; for (let i = 0; i < sh.ring.length; i += 2) pts.push(new THREE.Vector2(sh.ring[i] - CX, sh.ring[i + 1] - CY));
+  const geo = new THREE.ShapeGeometry(new THREE.Shape(pts)); geo.rotateX(-Math.PI / 2);
+  const fm = new THREE.MeshBasicMaterial({ color: col('--shop'), transparent: true, opacity: SHOP_FILL, depthWrite: false, side: THREE.DoubleSide });
+  fm.userData = { token: '--shop', base: SHOP_FILL };
+  const mesh = new THREE.Mesh(geo, fm); mesh.position.y = y0 + 0.05; mesh.userData = { shop: si }; mesh.renderOrder = 2;
+  grp.add(mesh); storeyMats[storey].push(fm); shopMeshes.push(mesh);
+  const ring = [];
+  for (let i = 0; i <= sh.ring.length; i += 2) { const k = i % sh.ring.length; const [x, z] = W(sh.ring[k], sh.ring[k + 1]); ring.push(new THREE.Vector3(x, 0, z)); }
+  const lm = mapped ? new THREE.LineBasicMaterial({ color: col('--shop'), transparent: true })
+                    : new THREE.LineDashedMaterial({ color: col('--shop'), transparent: true, dashSize: 1.6, gapSize: 1.1 });
+  lm.userData = { token: '--shop', base: 1 };
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lm);
+  if (!mapped) line.computeLineDistances();
+  line.position.y = y0 + 0.08; line.renderOrder = 3;
+  grp.add(line); storeyMats[storey].push(lm);
+});
+// hall dividers (OSM building:part): wings shaded darker than the open halls, all parts outlined
+for (const [zone, list] of Object.entries(SH ? (SH.dividers || {}) : {})) {
+  const zi = zoneIdx[zone]; if (zi === undefined) continue;
+  const storey = zoneStorey[zi];
+  const grp = shopGroupOf(storey);
+  const y0 = (zoneById[zone].z - REF) * VEX;
+  for (const d of list) {
+    if (d.role === 'wing') {
+      const pts = []; for (let i = 0; i < d.ring.length; i += 2) pts.push(new THREE.Vector2(d.ring[i] - CX, d.ring[i + 1] - CY));
+      const g = new THREE.ShapeGeometry(new THREE.Shape(pts)); g.rotateX(-Math.PI / 2);
+      const m = new THREE.MeshBasicMaterial({ color: col('--wing'), transparent: true, opacity: 0.92, depthWrite: false, side: THREE.DoubleSide });
+      m.userData = { token: '--wing', base: 0.92 };
+      const mesh = new THREE.Mesh(g, m); mesh.position.y = y0 + 0.03; mesh.renderOrder = 1;
+      grp.add(mesh); storeyMats[storey].push(m);
+    }
+    const ring = [];
+    for (let i = 0; i <= d.ring.length; i += 2) { const k = i % d.ring.length; const [x, z] = W(d.ring[k], d.ring[k + 1]); ring.push(new THREE.Vector3(x, 0, z)); }
+    const lm = new THREE.LineBasicMaterial({ color: col('--divider'), transparent: true }); lm.userData = { token: '--divider', base: 1 };
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lm); line.position.y = y0 + 0.09; line.renderOrder = 3;
+    grp.add(line); storeyMats[storey].push(lm);
+  }
+}
+// street level: OSM footpaths near the station (so the stairs from the passages lead somewhere) and the tram stops
+const tramMeshes = [];
+if (NAV && NAV.street) {
+  // thin paths: street level near the station, and walkways (OSM lines) that lead from a stair / lift end to the drawn floor
+  const buckets = {};
+  for (const k of NAV.street) {
+    const e = E[k];
+    const storey = zoneStorey[N[e[0]][3]];
+    const za = N[e[0]][2], zb = N[e[1]][2];
+    const pts = [[N[e[0]][0], N[e[0]][1]]];
+    const g = D.edge_geom[k]; if (g) for (let i = 0; i < g.length; i += 2) pts.push([g[i], g[i + 1]]);
+    pts.push([N[e[1]][0], N[e[1]][1]]);
+    const pos = (buckets[storey] ||= []);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [ax, az] = W(...pts[i]), [bx, bz] = W(...pts[i + 1]);
+      const ya = (za + (zb - za) * i / (pts.length - 1) - REF) * VEX, yb = (za + (zb - za) * (i + 1) / (pts.length - 1) - REF) * VEX;
+      pos.push(ax, ya, az, bx, yb, bz);
+    }
+  }
+  for (const [storey, pos] of Object.entries(buckets)) {
+    const sm = new THREE.LineBasicMaterial({ color: col('--street'), transparent: true }); sm.userData = { token: '--street', base: 1 };
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const sl = new THREE.LineSegments(sg, sm); sl.position.y = 0.04;
+    storeyGroups[storey].add(sl); storeyMats[storey].push(sm);
+  }
+}
+if (NAV && NAV.transit) {
+  const storey = zoneStorey[zoneIdx['L0']];
+  const y0 = (zoneById['L0'].z - REF) * VEX;
+  NAV.transit.forEach((stop, ti) => {
+    let cx = 0, cy = 0, n = 0;
+    for (const pl of stop.platforms) {
+      const pts = []; for (let i = 0; i < pl.ring.length; i += 2) { pts.push(new THREE.Vector2(pl.ring[i] - CX, pl.ring[i + 1] - CY)); cx += pl.ring[i]; cy += pl.ring[i + 1]; n++; }
+      const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: 0.6, bevelEnabled: false }); geo.rotateX(-Math.PI / 2);
+      const closedNow = stop.closure && ACTIVE_CLOSURES.some(c => c.id === stop.closure);
+      const mat = new THREE.MeshLambertMaterial({ color: col(closedNow ? '--closed' : '--tram'), transparent: true });
+      if (closedNow) mat.map = HATCH;
+      mat.userData = { token: closedNow ? '--closed' : '--tram', base: 1 };
+      const mesh = new THREE.Mesh(geo, mat); mesh.position.y = y0 - 0.3; mesh.userData = { tram: ti };
+      storeyGroups[storey].add(mesh); storeyMats[storey].push(mat); tramMeshes.push(mesh);
+    }
+    const closedNow = stop.closure && ACTIVE_CLOSURES.some(c => c.id === stop.closure);
+    const el = document.createElement('div'); el.className = 'lb lb-tram' + (closedNow ? ' closed' : '');
+    el.innerHTML = `<span class="t">T</span>${esc(stop.name)}${stop.lines.length ? ` <span class="ln">${stop.lines.join(' ')}</span>` : ''}${closedNow ? ' <span class="ln">closed</span>' : ''}`;
+    el.addEventListener('click', (ev) => { ev.stopPropagation(); peekTram(ti); });
+    const o = new CSS2DObject(el); const [x, z] = W(cx / n, cy / n); o.position.set(x, y0 + 2.5, z);
+    storeyGroups[storey].add(o); labelObjs.push({ obj: o, storey, kind: 'track' });
+  });
+}
+// storey name labels, stacked beside the west end of the station like a section legend
+{
+  let ex = Infinity, ey = 0;
+  for (const a of D.areas) for (const r of a.polys[0]) for (let i = 0; i < r.length; i += 2) if (r[i] < ex) { ex = r[i]; ey = r[i + 1]; }
+  for (const s of D.storeys) {
+    const el = document.createElement('div'); el.className = 'lb lb-storey';
+    el.innerHTML = `<b>${s.id}</b>${esc(STOREY_SHORT[s.id] || s.name)} · <span class="mono">${s.display_z_m_asl.toFixed(1)} m</span>`;
+    const o = new CSS2DObject(el); const [x, z] = W(ex, ey);
+    o.position.set(x - 20, (s.display_z_m_asl - REF) * VEX + 2, z); o.center.set(1, 0.5);
+    o.userData.home = o.position.clone(); o.userData.el = el;
+    storeyGroups[s.id].add(o); labelObjs.push({ obj: o, storey: s.id, kind: 'storey' });
+  }
+}
+// rails
+const railMats = {};
+for (const r of D.rails) {
+  const zi = zoneIdx[r.zone]; if (zi === undefined) continue;
+  const storey = zoneStorey[zi];
+  if (!railMats[storey]) { railMats[storey] = new THREE.LineBasicMaterial({ color: col('--rail'), transparent: true }); railMats[storey].userData = { token: '--rail', base: 1 }; storeyMats[storey].push(railMats[storey]); }
+  const pts = []; for (let i = 0; i < r.pts.length; i += 2) { const [x, z] = W(r.pts[i], r.pts[i + 1]); pts.push(new THREE.Vector3(x, 0, z)); }
+  const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), railMats[storey]);
+  ln.position.y = (zoneById[r.zone].z - REF) * VEX - 0.9;
+  storeyGroups[storey].add(ln);
+}
+
+// ------------------------------------------------------------------ connectors (instanced; rebuilt when storeys move)
+const C = D.connectors;
+const stairs = C.map((c, i) => i).filter(i => C[i].t === 'stairs');
+const escs = C.map((c, i) => i).filter(i => C[i].t === 'escalator' || C[i].t === 'ramp');
+const STEPS_VIS = (c, rise) => Math.max(4, Math.min(14, Math.round(rise / 1.6)));
+const stairInst = [];          // instance -> connector index
+for (const i of stairs) for (let k = 0; k < 14; k++) stairInst.push(i);   // reserve max
+const box = new THREE.BoxGeometry(1, 1, 1);
+const connMat = () => new THREE.MeshLambertMaterial({ color: 0xffffff });
+const stairMesh = new THREE.InstancedMesh(box, connMat(), stairInst.length);
+const slabMesh = new THREE.InstancedMesh(box, connMat(), escs.length);
+const chev = (() => {
+  const s = new THREE.Shape();
+  s.moveTo(-0.55, -0.35); s.lineTo(0, 0.2); s.lineTo(0.55, -0.35); s.lineTo(0.55, 0.05); s.lineTo(0, 0.6); s.lineTo(-0.55, 0.05); s.closePath();
+  return new THREE.ShapeGeometry(s);
+})();
+const CHEV_PER = 3;
+const escOnly = escs.filter(i => C[i].t === 'escalator');
+const chevMesh = new THREE.InstancedMesh(chev, new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }), escOnly.length * CHEV_PER);
+const L = D.lifts;
+const liftSeg = [];            // instance -> lift index
+L.forEach((lf, li) => { for (let k = 0; k < lf.stops.length - 1; k++) liftSeg.push(li); });
+const liftStop = []; L.forEach((lf, li) => lf.stops.forEach(() => liftStop.push(li)));
+const shaftMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.38, depthWrite: false });
+const shaftMesh = new THREE.InstancedMesh(box, shaftMat, liftSeg.length);
+const coreMesh = new THREE.InstancedMesh(box, connMat(), liftSeg.length);
+const plateMesh = new THREE.InstancedMesh(box, connMat(), liftStop.length);
+for (const m of [stairMesh, slabMesh, chevMesh, shaftMesh, coreMesh, plateMesh]) { m.frustumCulled = false; scene.add(m); }
+stairMesh.userData.kind = 'stairs'; slabMesh.userData.kind = 'slab'; shaftMesh.userData.kind = 'lift'; coreMesh.userData.kind = 'lift'; plateMesh.userData.kind = 'plate';
+
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+function basis(fwd) {
+  const f = fwd.clone().normalize();
+  let side = new THREE.Vector3().crossVectors(f, UP);
+  if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+  side.normalize();
+  const nrm = new THREE.Vector3().crossVectors(side, f).normalize();
+  return { f, side, nrm, q: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, f, nrm)) };
+}
+const escAnim = [];            // per escalator: {a, dir(len), b}
+const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
+
+function layoutConnectors() {
+  // stairs: a zig-zag of treads from the lower to the upper end
+  let k = 0;
+  for (const i of stairs) {
+    const c = C[i];
+    let A = nodeWorld(c.a), B = nodeWorld(c.b);
+    if (A.y > B.y) [A, B] = [B, A];
+    const hz = new THREE.Vector3(B.x - A.x, 0, B.z - A.z);
+    const horiz = Math.max(hz.length(), 0.01);
+    const rise = B.y - A.y;
+    const n = STEPS_VIS(c, rise);
+    const fh = horiz > 0.05 ? hz.clone().normalize() : new THREE.Vector3(1, 0, 0);
+    const side = new THREE.Vector3().crossVectors(fh, UP).normalize();
+    _q.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, UP, fh.clone().negate()));
+    for (let s = 0; s < 14; s++, k++) {
+      if (s >= n) { stairMesh.setMatrixAt(k, HIDE); continue; }
+      const t = (s + 0.5) / n;
+      _p.set(A.x + fh.x * horiz * t, A.y + rise * t, A.z + fh.z * horiz * t);
+      _s.set(2.6, Math.max(rise / n, 0.35), Math.max(horiz / n, 0.45));
+      stairMesh.setMatrixAt(k, _m.compose(_p, _q, _s));
+    }
+  }
+  stairMesh.instanceMatrix.needsUpdate = true;
+  // escalators and ramps: a smooth slab from the start to the end of travel
+  escAnim.length = 0;
+  escs.forEach((i, k2) => {
+    const c = C[i];
+    const A = nodeWorld(c.a), B = nodeWorld(c.b);
+    const d = B.clone().sub(A); const len = Math.max(d.length(), 0.5);
+    const b = basis(d);
+    _p.copy(A).add(B).multiplyScalar(0.5);
+    _s.set(c.t === 'ramp' ? 2.4 : 1.9, len, 0.5);
+    slabMesh.setMatrixAt(k2, _m.compose(_p, b.q, _s));
+    if (c.t === 'escalator') escAnim.push({ i, A, d, len, b });
+  });
+  slabMesh.instanceMatrix.needsUpdate = true;
+  // lifts: a glass shaft per segment, a solid core, a plate at every stop
+  let si = 0, pi = 0;
+  L.forEach((lf) => {
+    const P = lf.stops.map(nodeWorld).sort((u, v) => u.y - v.y);
+    for (let s = 0; s < P.length - 1; s++, si++) {
+      const d = P[s + 1].clone().sub(P[s]); const len = Math.max(d.length(), 0.5);
+      const b = basis(d);
+      _p.copy(P[s]).add(P[s + 1]).multiplyScalar(0.5);
+      shaftMesh.setMatrixAt(si, _m.compose(_p, b.q, _s.set(3.0, len, 3.0)));
+      coreMesh.setMatrixAt(si, _m.compose(_p, b.q, _s.set(0.9, len, 0.9)));
+    }
+    for (const p of P) { plateMesh.setMatrixAt(pi++, _m.compose(_p.copy(p).add(new THREE.Vector3(0, 0.3, 0)), _q.identity(), _s.set(3.8, 0.6, 3.8))); }
+  });
+  shaftMesh.instanceMatrix.needsUpdate = coreMesh.instanceMatrix.needsUpdate = plateMesh.instanceMatrix.needsUpdate = true;
+  animateChevrons(lastT);
+}
+let lastT = 0;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// mobile: to save battery only the escalators on the current route (or the selected platform) run; the others show still arrows
+const animatedEsc = () => (state.sel && (state.sel.type === 'route' || state.sel.type === 'area') && hiConn) ? hiConn : null;
+function animateChevrons(t) {
+  const run = animatedEsc();
+  let k = 0;
+  for (const e of escAnim) {
+    const phase = (reduceMotion || !run || !run.has(e.i)) ? 0.15 : (t * 0.00035) % 1;
+    for (let j = 0; j < CHEV_PER; j++, k++) {
+      const u = (phase + j / CHEV_PER) % 1;
+      _p.copy(e.A).addScaledVector(e.d, 0.08 + u * 0.84).addScaledVector(e.b.nrm, 0.3);
+      chevMesh.setMatrixAt(k, _m.compose(_p, e.b.q, _s.set(1.5, 1.5, 1)));
+    }
+  }
+  chevMesh.instanceMatrix.needsUpdate = true;
+}
+
+// ------------------------------------------------------------------ colours, focus, highlight
+const connCatColor = (c) => c.closed ? '--closed' : c.t === 'stairs' ? '--c-stairs' : c.t === 'escalator' ? '--c-escalator' : '--c-ramp';
+function connStoreys(c) { return [zoneStorey[N[c.a][3]], zoneStorey[N[c.b][3]]]; }
+function liftStoreys(lf) { return lf.stops.map(s => zoneStorey[N[s][3]]); }
+let hiConn = null, hiLift = null;     // Sets when a platform is selected
+function connState(i) {
+  if (state.sel && state.sel.type === 'conn' && state.sel.i === i) return 'sel';
+  if (hiConn) return hiConn.has(i) ? 'hi' : 'dim';
+  if (state.focus && !connStoreys(C[i]).includes(state.focus)) return 'dim';
+  return 'n';
+}
+function liftState(li) {
+  if (state.sel && state.sel.type === 'lift' && state.sel.i === li) return 'sel';
+  if (hiLift) return hiLift.has(li) ? 'hi' : 'dim';
+  if (state.focus && !liftStoreys(L[li]).includes(state.focus)) return 'dim';
+  return 'n';
+}
+const _c = new THREE.Color();
+function shade(token, st, bg) {
+  _c.copy(col(token));
+  if (st === 'dim') _c.lerp(bg, 0.8);
+  if (st === 'sel') _c.lerp(col('--accent'), 0.0).offsetHSL(0, 0, 0.12);
+  return _c;
+}
+function storeyFaded(id) {
+  if (nav.step) return !nav.step.storeys.has(id);      // step-by-step: only the storeys of the current step
+  if (state.focus) return state.focus !== id;
+  if (nav.fadeOthers && nav.route) return !nav.routeStoreys.has(id);
+  return false;
+}
+function recolor() {
+  const bg = col('--bg');
+  scene.background = bg.clone();
+  hemi.groundColor = bg.clone().lerp(new THREE.Color(0x000000), 0.3);
+  let k = 0;
+  // on a route, the stairs / escalators / lifts it uses take a deep shade of the route colour; all others stay neutral
+  const onRoute = state.sel && state.sel.type === 'route' && nav.route;
+  const ROUTE_TOK = '--route-conn';
+  const tokOf = (base, st) => (onRoute && st === 'hi') ? ROUTE_TOK : base;
+  for (const i of stairs) { const st = connState(i); const c = shade(tokOf(connCatColor(C[i]), st), st, bg); for (let s = 0; s < 14; s++) stairMesh.setColorAt(k++, c); }
+  escs.forEach((i, k2) => { const st = connState(i); slabMesh.setColorAt(k2, shade(tokOf(connCatColor(C[i]), st), st, bg)); });
+  k = 0;
+  for (const e of escAnim) {
+    const st = connState(e.i);
+    const c = st === 'dim' ? bg.clone().lerp(col('--panel'), 0.3) : new THREE.Color(0xffffff);
+    for (let j = 0; j < CHEV_PER; j++) chevMesh.setColorAt(k++, c);
+  }
+  let si = 0, pi = 0;
+  L.forEach((lf, li) => {
+    const st = liftState(li);
+    for (let s = 0; s < lf.stops.length - 1; s++, si++) { const c = shade(tokOf('--c-lift', st), st, bg); shaftMesh.setColorAt(si, c); coreMesh.setColorAt(si, c); }
+    const P = lf.stops.slice().sort((u, v) => N[u][2] - N[v][2]);
+    for (const s of P) plateMesh.setColorAt(pi++, shade((lf.closed_stops || []).includes(s) ? '--closed' : tokOf('--c-lift', st), st, bg));
+  });
+  for (const m of [stairMesh, slabMesh, chevMesh, shaftMesh, coreMesh, plateMesh]) if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  // floors & storey fading
+  for (const s of D.storeys) {
+    const faded = storeyFaded(s.id);
+    for (const m of storeyMats[s.id]) {
+      if (m.userData.token) m.color = col(m.userData.token);
+      const base = m.userData.base ?? 1;
+      m.opacity = faded ? (m.isLineBasicMaterial || m.isLineDashedMaterial ? 0.15 : 0.1) * base : base;
+      m.depthWrite = !faded && base >= 1;
+    }
+  }
+  // selected platform: raise contrast of its floor
+  for (const mesh of floorMeshes) {
+    const isSel = state.sel && state.sel.type === 'area' && state.sel.i === mesh.userData.area;
+    if (isSel) mesh.material.color = col(mesh.material.userData.token).offsetHSL(0, 0.05, 0.08);
+  }
+  for (const l of labelObjs) {
+    const faded = storeyFaded(l.storey);
+    let vis = !faded;
+    if (l.kind === 'area' || l.kind === 'shop') vis = vis && (state.focus === l.storey || state.view === 'top');
+    if (l.kind === 'shop') vis = vis && state.shops;
+    if (l.kind === 'storey') vis = state.view === 'section';
+    if (state.view === 'section') {
+      const wp = l.obj.getWorldPosition(new THREE.Vector3()); const tt = wp.x * axisW.x + wp.z * axisW.z;
+      vis = l.kind === 'storey' || ((l.kind === 'track' || l.kind === 'closed') && tt >= state.cutT && tt <= state.cutT + SECTION_DEPTH);
+    }
+    if (state.view === 'top' && (l.kind === 'storey' || storeyById[l.storey].order < storeyById[state.topStorey].order)) vis = false;
+    l.obj.visible = vis;
+  }
+  routeMats.forEach(m => m.color = col(m.userData.token));
+  syncStoreyChip();
+  invalidate();
+}
+
+// ------------------------------------------------------------------ routing (same profiles as validate_graph.py)
+const PROFILES = {
+  standard: () => true,
+  no_stairs: (t) => t !== T.stairs,
+  step_free: (t) => t === T.walkway || t === T.ramp || t === T.lift,
+};
+const PROFILE_TEXT = {
+  standard: 'Stairs, escalators (in their direction of travel) and lifts.',
+  no_stairs: 'No fixed stairs: escalators (in their direction of travel), lifts and ramps.',
+  step_free: 'Step-free: lifts and ramps only, no stairs or escalators.',
+};
+
+const adjCache = {};
+function adjacency(profile, closures = false) {
+  const key = profile + (closures ? '|c' : '');
+  if (adjCache[key]) return adjCache[key];
+  const ok = PROFILES[profile];
+  const adj = Array.from({ length: N.length }, () => []);
+  E.forEach((e, k) => {
+    const [a, b, t, , time, flags] = e;
+    if (flags & 4 || !ok(t) || (closures && CLOSED_EDGE_SET.has(k))) return;
+    adj[a].push([b, time, k, 1]);
+    if (!(flags & 1)) adj[b].push([a, time, k, -1]);
+  });
+  return (adjCache[key] = adj);
+}
+function dijkstra(sources, targets, profile, closures = false) {
+  const adj = adjacency(profile, closures);
+  const dist = new Float64Array(N.length).fill(Infinity);
+  const prev = new Int32Array(N.length).fill(-1), prevE = new Int32Array(N.length).fill(-1), prevDir = new Int8Array(N.length);
+  const heap = [];
+  const push = (d, v) => { heap.push([d, v]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  for (const s of sources) { dist[s] = 0; push(0, s); }
+  const tset = new Set(targets);
+  while (heap.length) {
+    const [d, u] = pop();
+    if (d > dist[u]) continue;
+    if (tset.has(u)) {
+      const path = []; let v = u;
+      while (prev[v] >= 0) { path.push([prevE[v], prevDir[v]]); v = prev[v]; }
+      return { time: d, target: u, path: path.reverse() };
+    }
+    for (const [v, w, k, dir] of adj[u]) {
+      const nd = d + w;
+      if (nd < dist[v]) { dist[v] = nd; prev[v] = u; prevE[v] = k; prevDir[v] = dir; push(nd, v); }
+    }
+  }
+  return null;
+}
+const connByEdge = new Map(C.map((c, i) => [c.e, i]));
+const liftByNode = new Map(); L.forEach((lf, li) => lf.stops.forEach(s => liftByNode.set(s, li)));
+function describe(route) {
+  const steps = [];
+  let len = 0;
+  for (const [k, dir] of route.path) {
+    const e = E[k]; len += e[3];
+    const t = TYPES[e[2]];
+    if (t === 'walkway') continue;
+    if (t === 'lift') {
+      const li = liftByNode.get(e[0]); const lf = L[li];
+      const name = `Lift ${lf?.sbb || lf?.ref || ''}`.trim();
+      if (!steps.length || steps[steps.length - 1].li !== li) steps.push({ t, name, li, n: 1 });
+      continue;
+    }
+    const ci = connByEdge.get(k); const c = C[ci];
+    const za = N[dir > 0 ? e[0] : e[1]][2], zb = N[dir > 0 ? e[1] : e[0]][2];
+    const arrow = zb > za + 0.5 ? '↑' : zb < za - 0.5 ? '↓' : '';
+    const name = (t === 'stairs' ? 'Stairs' : t === 'escalator' ? 'Escalator' : 'Ramp') + (arrow ? ' ' + arrow : '');
+    const last = steps[steps.length - 1];
+    if (last && last.name === name && last.ci !== ci) last.n++; else steps.push({ t, name, ci, n: 1 });
+  }
+  return { steps, len };
+}
+
+// route drawing
+const routeGroup = new THREE.Group(); scene.add(routeGroup);
+const routeMats = [];
+function routeLine(route, token, width, dashed, opacity = 1) {
+  const pos = [];
+  for (const [k, dir] of route.path) {
+    const e = E[k];
+    let a = e[0], b = e[1]; if (dir < 0) [a, b] = [b, a];
+    const A = nodeWorld(a), B = nodeWorld(b);
+    const g = D.edge_geom[k];
+    const mids = [];
+    if (g) for (let i = 0; i < g.length; i += 2) mids.push([g[i], g[i + 1]]);
+    if (dir < 0) mids.reverse();
+    const pts = [A, ...mids.map(([x, y]) => { const [wx, wz] = W(x, y); return new THREE.Vector3(wx, 0, wz); }), B];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      if (i > 0 && i < pts.length - 1) p.y = A.y + (B.y - A.y) * i / (pts.length - 1);
+      if (pos.length && i === 0) continue;
+      pos.push(p.x, p.y + 1.2, p.z);
+    }
+  }
+  if (pos.length < 6) return;
+  const geo = new LineGeometry(); geo.setPositions(pos);
+  const mat = new LineMaterial({ color: col(token), linewidth: width, dashed: !!dashed, dashSize: 4, gapSize: 3, worldUnits: false, transparent: true, depthTest: false, opacity });
+  mat.userData.token = token;
+  mat.resolution.set(stage.clientWidth, stage.clientHeight);
+  routeMats.push(mat);
+  const line = new Line2(geo, mat); line.computeLineDistances(); line.renderOrder = 10;
+  routeGroup.add(line);
+}
+let currentRoutes = [];
+const pinObjs = [];
+function makePin(letter, token) {
+  const el = document.createElement('div'); el.className = 'lb lb-pin'; el.textContent = letter; el.style.background = `var(${token})`;
+  const o = new CSS2DObject(el); o.center.set(0.5, 1.1); return o;
+}
+function drawPins() {
+  for (const o of pinObjs) scene.remove(o);
+  pinObjs.length = 0;
+  if (!nav.route || !nav.route.path.length) return;
+  const e0 = E[nav.route.path[0][0]];
+  const start = nav.route.path[0][1] > 0 ? e0[0] : e0[1];
+  for (const [i, letter, token] of [[start, 'A', '--fg'], [nav.route.target, 'B', '--route']]) {
+    const o = makePin(letter, token); o.position.copy(nodeWorld(i)).add(new THREE.Vector3(0, 2.2, 0)); scene.add(o); pinObjs.push(o);
+  }
+}
+function drawRoutes() {
+  drawPins();
+  routeGroup.clear(); routeMats.length = 0;
+  for (const r of currentRoutes) if (r.route) routeLine(r.route, r.token, r.width, r.dashed, nav.step ? 0.35 : 1);
+  // step-by-step: the part of the route for the current step, drawn wider on top
+  if (nav.step && nav.route) {
+    const sub = nav.route.path.slice(nav.step.a, nav.step.b);
+    if (sub.length) routeLine({ path: sub }, nav.profile === 'step_free' ? '--route-sf' : '--route', 10, false, 1);
+  }
+  invalidate();
+}
+
+// ------------------------------------------------------------------ selection
+const card = document.getElementById('card');
+function groupOfArea(a) { return GROUPS[a.group]; }
+function platformNodes(a, tracks) { return (tracks || a.tracks).flatMap(t => a.track_nodes[String(t)] || []); }
+function selectArea(ai, tracks = null) {
+  const a = D.areas[ai];
+  nav.route = null; nav.routeStoreys = new Set();
+  state.sel = { type: 'area', i: ai }; state.tracks = tracks;
+  const targets = platformNodes(a, tracks);
+  // all access connectors and lifts on the platform
+  hiConn = new Set(a.access); hiLift = new Set(a.lift_access);
+  // fastest routes from the Querhalle and from every other platform group
+  currentRoutes = [];
+  const q = D.meta.querhalle_node;
+  const std = dijkstra([q], targets, 'standard');
+  const sf = dijkstra([q], targets, 'step_free');
+  currentRoutes.push({ label: 'From the Querhalle', route: std, token: '--route', width: 5 });
+  currentRoutes.push({ label: 'From the Querhalle, step-free', route: sf, token: '--route-sf', width: 4, dashed: true, stepfree: true });
+  const groups = {};
+  D.areas.forEach((b, bi) => { if (b.kind === 'platform' && b.group !== a.group) (groups[b.group] ||= []).push(...platformNodes(b)); });
+  for (const [g, nodes] of Object.entries(groups)) {
+    const r = dijkstra(nodes, targets, 'standard');
+    currentRoutes.push({ label: `From ${GROUPS[g].name}`, route: r, token: '--route', width: 2.5, other: true });
+  }
+  for (const r of currentRoutes) if (r.route) for (const [k] of r.route.path) {
+    const t = TYPES[E[k][2]];
+    if (t === 'lift') hiLift.add(liftByNode.get(E[k][0]));
+    else if (t !== 'walkway' && connByEdge.has(k)) hiConn.add(connByEdge.get(k));
+  }
+  drawRoutes(); recolor(); renderAreaCard(a, ai); setSheetMode('info', 'half');
+}
+function selectConn(i) { state.sel = { type: 'conn', i }; nav.route = null; nav.routeStoreys = new Set(); hiConn = null; hiLift = null; currentRoutes = []; drawRoutes(); recolor(); renderConnCard(i); setSheetMode('info', 'half'); }
+function selectLift(li) { state.sel = { type: 'lift', i: li }; nav.route = null; nav.routeStoreys = new Set(); hiConn = null; hiLift = null; currentRoutes = []; drawRoutes(); recolor(); renderLiftCard(li); setSheetMode('info', 'half'); }
+function selectShop(si) { state.sel = { type: 'shop', i: si }; nav.route = null; nav.routeStoreys = new Set(); hiConn = null; hiLift = null; currentRoutes = []; drawRoutes(); recolor(); renderShopCard(si); setSheetMode('info', 'half'); }
+function selectTram(ti) {
+  const stop = NAV.transit[ti]; const pl = placeById.get(stop.place);
+  state.sel = { type: 'tram', i: ti }; nav.route = null; nav.routeStoreys = new Set(); hiConn = null; hiLift = null; currentRoutes = [];
+  drawRoutes(); recolor();
+  const c = stop.closure && ACTIVE_CLOSURES.find(x => x.id === stop.closure);
+  card.innerHTML = `
+    <button class="close" id="cardClose" aria-label="Clear selection">×</button>
+    <div class="eyebrow">Tram stop · street level (E0)</div>
+    <h3>${esc(stop.name)}</h3>
+    ${c ? `<div class="banner"><b>Closed</b> until ${fmtDay(closureEnd(c))}: ${esc(c.what)}. The platforms are shown as mapped in OSM (under construction).</div>` : ''}
+    <dl class="kv">
+      <dt>Lines</dt><dd>${stop.lines.length ? stop.lines.map(l => `Tram ${l}`).join(', ') : '–'} <span class="muted">(OSM route relations)</span></dd>
+      <dt>Platforms</dt><dd>${stop.platforms.length} <span class="mono muted">${stop.platforms.map(p => esc(p.osm)).join(', ')}</span></dd>
+    </dl>
+    <div class="quick"><button class="chip" data-nav="from"><b class="pinb" style="background:var(--fg)">A</b>Route from here</button><button class="chip" data-nav="to"><b class="pinb" style="background:var(--route)">B</b>Route to here</button></div>
+    <p class="fine">The walk between a platform and the nearest street-level path of the station is a straight, schematic link: OSM does not map every crossing.</p>`;
+  card.hidden = false; card.querySelector('#cardClose').onclick = clearSel;
+  card.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => setPlace(b.dataset.nav, pl, true));
+  setSheetMode('info', 'half');
+}
+function clearSel() {
+  state.sel = null; hiConn = null; hiLift = null; currentRoutes = []; nav.route = null; nav.step = null; nav.routeStoreys = new Set();
+  syncRouteButtons(); drawRoutes(); recolor();
+  if (nav.from && nav.to) computeRoute(true);      // back from a platform card to the route
+  else renderIntro();
+}
+
+const ZONE_SHORT = { 'L0': 'Erdgeschoss', 'L-1E': 'ShopVille Bahnhofplatz', 'L-1W': 'Passage Sihlquai', 'L-2': 'ShopVille passages',
+  'L-2S': 'SZU station', 'L-3': 'Museumstrasse', 'L-3W': 'Halle Sihlpost', 'L-4': 'Löwenstrasse' };
+const zoneName = (zi) => { const z = D.zones[zi]; return `${z.storey} · ${ZONE_SHORT[z.id] || z.name}`; };
+const legendIcon = {
+  stairs: `<svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><path d="M1 15h5v-4h5V7h5V3h5" fill="none" stroke="var(--c-stairs)" stroke-width="3" stroke-linejoin="round"/></svg>`,
+  escalator: `<svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><path d="M2 14L19 3" stroke="var(--c-escalator)" stroke-width="5" stroke-linecap="round"/><path d="M8 9.5l3.5-6 1.6 6.6" fill="none" stroke="var(--panel)" stroke-width="1.6"/></svg>`,
+  lift: `<svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><rect x="7" y="1" width="8" height="14" rx="1" fill="none" stroke="var(--c-lift)" stroke-width="2"/><rect x="10" y="1" width="2" height="14" fill="var(--c-lift)"/><rect x="5" y="13" width="12" height="2.5" fill="var(--c-lift)"/></svg>`,
+  ramp: `<svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><path d="M2 13L20 9" stroke="var(--c-ramp)" stroke-width="4" stroke-linecap="round"/></svg>`,
+};
+function atlasPill(v) {
+  if (v === 'YES') return '<span class="pill ok">Step-free</span>';
+  if (v === 'YES_WITH_LIFT') return '<span class="pill lift">Step-free by lift</span>';
+  return `<span class="pill">${esc(v || '–')}</span>`;
+}
+function renderAreaCard(a, ai) {
+  const g = groupOfArea(a);
+  const acc = { stairs: 0, up: 0, down: 0, lifts: new Set() };
+  for (const ci of a.access) { const c = C[ci]; if (c.t === 'stairs') acc.stairs++; else if (c.t === 'escalator') { const za = N[c.a][2], zb = N[c.b][2]; (zb > za ? acc.up++ : acc.down++); } }
+  for (const li of a.lift_access) acc.lifts.add(L[li].sbb || L[li].ref || L[li].id);
+  const trackChips = a.tracks.map(t => `<button class="chip" data-track="${t}" aria-pressed="${state.tracks && state.tracks.length === 1 && state.tracks[0] === t}"><i style="background:var(${g.token})"></i>Gleis ${t}</button>`).join('');
+  const routes = currentRoutes.map(r => {
+    if (!r.route) return `<li><span class="ln" style="background:var(${r.token})"></span><b>${esc(r.label)}</b><span class="t">–</span><span class="via">No ${r.stepfree ? 'step-free ' : ''}route in the graph.</span></li>`;
+    const d = describe(r.route);
+    const via = d.steps.length ? d.steps.map(s => (s.n > 1 ? s.n + '× ' : '') + esc(s.name)).join(' · ') : 'Level walk, no stairs or lifts';
+    return `<li class="${r.other ? 'more' : ''}"><span class="ln ${r.dashed ? 'dash' : ''}" style="background:var(${r.token}); ${r.other ? 'opacity:.55' : ''}"></span><b>${esc(r.label)}</b><span class="t">${fmtTime(r.route.time)} · ${Math.round(d.len)} m</span><span class="via">${via}</span></li>`;
+  }).join('');
+  const closed = a.closed ? (() => { const c = D.closures.find(x => x.id === a.closed); return `<div class="banner"><b>Closed</b> ${esc(c.from)} to ${esc(c.until)}, reopens ${esc(c.reopens)}. The platform and its accesses are shown, but trains do not stop here.</div>`; })() : '';
+  card.innerHTML = `
+    <button class="close" id="cardClose" aria-label="Clear selection">×</button>
+    <div class="eyebrow">${esc(zoneName(zoneIdx[a.zone]))} · <span class="mono">${zoneById[a.zone].z.toFixed(1)} m a.s.l.</span></div>
+    <h3>${esc(a.name)}</h3>
+    ${closed}
+    <div class="chips">${trackChips}${a.tracks.length > 1 ? `<button class="chip" data-track="all" aria-pressed="${!state.tracks}">Both tracks</button>` : ''}</div>
+    ${NAV ? `<div class="quick"><button class="chip" data-nav="from"><b class="pinb" style="background:var(--fg)">A</b>Route from here</button><button class="chip" data-nav="to"><b class="pinb" style="background:var(--route)">B</b>Route to here</button></div>` : ''}
+    <dl class="kv">
+      ${a.tracks.map(t => `<dt>Gleis ${t}</dt><dd>${atlasPill(a.atlas[t])} <span class="muted">sectors ${esc(a.sectors[t] || '–')} · ${esc(a.length_m[t] || '?')} m</span></dd>`).join('')}
+    </dl>
+    <div class="eyebrow">Ways onto the platform</div>
+    <div class="access">
+      <span>${legendIcon.stairs}${acc.stairs} stairs</span>
+      <span>${legendIcon.escalator}${acc.up + acc.down} escalators <span class="muted">(${acc.up} up, ${acc.down} down)</span></span>
+      <span>${legendIcon.lift}${acc.lifts.size} lift${acc.lifts.size === 1 ? '' : 's'} ${acc.lifts.size ? `<span class="muted">${esc([...acc.lifts].join(', '))}</span>` : ''}</span>
+    </div>
+    <div class="eyebrow" style="margin-top:10px">Fastest routes here</div>
+    <ul class="routes">${routes}</ul>
+    <p class="fine more" style="margin-top:10px">Lines show the fastest route from the Querhalle meeting point (solid) and the fastest step-free route (dashed), plus thin lines from the other platform groups. Highlighted stairs, escalators and lifts are all the connectors on this platform or on one of these routes.</p>`;
+  card.hidden = false;
+  card.querySelector('#cardClose').onclick = clearSel;
+  card.querySelectorAll('[data-track]').forEach(b => b.onclick = () => selectArea(ai, b.dataset.track === 'all' ? null : [Number(b.dataset.track)]));
+  card.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => {
+    const t = state.tracks && state.tracks.length === 1 ? state.tracks[0] : a.tracks[0];
+    const pl = placeById.get(state.tracks && state.tracks.length === 1 ? `trk:${t}` : `trk:${a.tracks[0]}`);
+    setPlace(b.dataset.nav, pl, true);
+  });
+}
+function renderConnCard(i) {
+  const c = C[i];
+  const za = N[c.a], zb = N[c.b];
+  const typeName = c.t === 'stairs' ? 'Stairs' : c.t === 'escalator' ? 'Escalator' : 'Ramp';
+  const dir = c.t === 'escalator' ? (c.dir === 'up' ? 'Runs up ↑' : c.dir === 'down' ? 'Runs down ↓' : esc(c.dir)) : 'Both directions';
+  card.innerHTML = `
+    <button class="close" id="cardClose" aria-label="Clear selection">×</button>
+    <div class="eyebrow">${legendIcon[c.t] || ''} ${typeName}</div>
+    <h3>${esc(zoneName(za[3]))} ⇄ ${esc(zoneName(zb[3]))}</h3>
+    ${c.closed ? '<div class="banner">Leads into the closed SZU station.</div>' : ''}
+    <dl class="kv">
+      <dt>Height</dt><dd class="mono">${za[2].toFixed(1)} m → ${zb[2].toFixed(1)} m (${(zb[2] - za[2] >= 0 ? '+' : '') + (zb[2] - za[2]).toFixed(1)} m)</dd>
+      <dt>Direction</dt><dd>${dir}</dd>
+      ${c.steps ? `<dt>Steps</dt><dd class="mono">${c.steps}</dd>` : ''}
+      <dt>OSM</dt><dd class="mono">${esc(c.osm)}</dd>
+      ${c.override ? '<dt>Note</dt><dd>Corrected in connector_overrides.csv</dd>' : ''}
+      ${c.display_only ? '<dt>Routing</dt><dd>Shown only; not used for routes</dd>' : ''}
+    </dl>`;
+  card.hidden = false; card.querySelector('#cardClose').onclick = clearSel;
+}
+function renderLiftCard(li) {
+  const lf = L[li];
+  const stops = lf.stops.slice().sort((u, v) => N[v][2] - N[u][2]);
+  card.innerHTML = `
+    <button class="close" id="cardClose" aria-label="Clear selection">×</button>
+    <div class="eyebrow">${legendIcon.lift} Lift${lf.inclined ? ' (inclined)' : ''}</div>
+    <h3>${esc(lf.sbb || lf.ref || lf.id)}</h3>
+    ${lf.closed_stops ? '<div class="banner">One stop is in the closed SZU station.</div>' : ''}
+    <dl class="kv">
+      <dt>Stops</dt><dd>${stops.map(s => `${esc(zoneName(N[s][3]))} <span class="mono muted">${N[s][2].toFixed(1)} m</span>`).join('<br>')}</dd>
+      ${lf.served ? `<dt>Serves</dt><dd>${esc(lf.served.replaceAll(';', ' · '))}</dd>` : ''}
+      <dt>OSM</dt><dd class="mono">${esc(lf.id)}</dd>
+    </dl>`;
+  card.hidden = false; card.querySelector('#cardClose').onclick = clearSel;
+}
+const METHOD_TEXT = {
+  osm_outline: 'OSM outline of the kiosk or room',
+  wall_room: 'Room enclosed by OSM indoor walls',
+  wall_room_split: 'Share of a walled room with several points',
+  wing_strip: 'Schematic: strip of the wing from its front line (towards the hall) to the outer border',
+  part_outline: 'OSM outline of the pavilion',
+  part_split: 'Share of a pavilion with several shops (OSM outline, split between the shops)',
+};
+function renderShopCard(si) {
+  const sh = SHOPS[si];
+  const conf = sh.confidence === 'high' ? 'ok' : '';
+  card.innerHTML = `
+    <button class="close" id="cardClose" aria-label="Clear selection">×</button>
+    <div class="eyebrow">${esc(zoneName(zoneIdx[sh.zone]))} · ${esc(CAT_NAME[sh.category] || sh.category)}</div>
+    <h3>${esc(sh.name || '(no name)')}</h3>
+    <dl class="kv">
+      <dt>Type</dt><dd>${esc(String(sh.kind).replaceAll('_', ' '))}</dd>
+      <dt>Footprint</dt><dd>${esc(METHOD_TEXT[sh.method] || sh.method)}</dd>
+      <dt>Confidence</dt><dd><span class="pill ${conf}">${esc(sh.confidence)}</span></dd>
+      <dt>Floor area</dt><dd class="mono">≈ ${Math.round(sh.area_m2)} m²</dd>
+      ${sh.wing ? `<dt>Wing</dt><dd>${esc(sh.wing)}</dd>` : ''}
+      <dt>OSM</dt><dd class="mono"><a href="https://www.openstreetmap.org/${esc(sh.id)}" target="_blank" rel="noopener">${esc(sh.id)}</a></dd>
+    </dl>
+    <p class="fine">Outlines are schematic. OSM maps the shops in Zürich HB as points, so the outline shows which part of the wing a shop takes, not its real walls. Routes do not avoid shops yet.</p>`;
+  card.hidden = false; card.querySelector('#cardClose').onclick = clearSel;
+}
+function renderIntro() {
+  const closedNow = ACTIVE_CLOSURES.map(c => `${esc(c.what.split(/[,(]/)[0].trim())} until ${fmtDay(closureEnd(c))}`);
+  card.innerHTML = `
+    <p class="hint">Type where you are and where you want to go: a track (<b>7</b>, <b>41</b>), a sector (<b>7C</b>), the meeting point, a tram stop or an exit. You can also tap a platform in the 3D view.</p>
+    ${closedNow.length ? `<p class="fine">Closed today: ${closedNow.join('; ')}.</p>` : ''}`;
+  card.hidden = false;
+  setSheetMode('search', 'half');
+}
+
+// ------------------------------------------------------------------ route search (A -> B)
+const PLACES = NAV ? NAV.places : [];
+const placeById = new Map(PLACES.map(p => [p.id, p]));
+const KIND_ORDER = { track: 0, sector: 1, poi: 2, tram: 3, exit: 4 };
+const PROFILE_LABEL = { standard: 'Standard', no_stairs: 'No stairs', step_free: 'Step-free' };
+const norm = (q) => q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+const placeKeys = new Map(PLACES.map(p => [p.id, [...p.keys, p.label].map(norm)]));
+function badgeOf(p) {
+  if (p.kind === 'track' || p.kind === 'sector') {
+    const g = GROUPS[p.group];
+    return `<span class="k" style="background:var(${g ? g.token : '--fg'})">${p.kind === 'sector' ? p.track + p.sector : p.track}</span>`;
+  }
+  if (p.kind === 'exit') return '<span class="k" style="background:var(--muted)">↗</span>';
+  if (p.kind === 'tram') return `<span class="k" style="background:var(${p.closure && ACTIVE_CLOSURES.some(c => c.id === p.closure) ? '--closed' : '--tram'})">T</span>`;
+  return '<span class="k" style="background:var(--accent)">★</span>';
+}
+function searchPlaces(q) {
+  q = norm(q).replace(/^(gleis|track|platform|perron)\s*/, '');
+  if (!q) return PLACES.filter(p => p.kind === 'poi' || p.kind === 'tram' || p.kind === 'exit').slice(0, 18);
+  const digits = /^\d+[a-z]?$/.test(q.replace(' ', ''));
+  const scored = [];
+  for (const p of PLACES) {
+    let best = Infinity;
+    for (const k of placeKeys.get(p.id)) {
+      const kk = k.replace(/^(gleis|track|platform|exit|ausgang)\s*/, '');
+      if (k === q || kk === q || kk.replace(' ', '') === q.replace(' ', '')) best = Math.min(best, 0);
+      else if (kk.startsWith(q) || k.startsWith(q)) best = Math.min(best, digits && p.kind === 'track' ? 3 : 1);
+      else if (!digits && k.includes(q)) best = Math.min(best, 2);
+    }
+    if (best < Infinity) scored.push([best, KIND_ORDER[p.kind], p.track ?? 99, p.label, p]);
+  }
+  scored.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3].localeCompare(b[3]));
+  return scored.slice(0, 10).map(s => s[4]);
+}
+const fields = {
+  from: { input: document.getElementById('fromIn'), list: document.getElementById('fromSugg'), clr: document.querySelector('[data-clear="from"]'), items: [], active: -1 },
+  to: { input: document.getElementById('toIn'), list: document.getElementById('toSugg'), clr: document.querySelector('[data-clear="to"]'), items: [], active: -1 },
+};
+function showSugg(which) {
+  const f = fields[which];
+  f.items = searchPlaces(f.input.value);
+  f.active = f.items.length ? 0 : -1;
+  f.list.innerHTML = f.items.length
+    ? f.items.map((p, k) => `<button type="button" role="option" id="${which}-opt-${k}" aria-selected="${k === f.active}" data-k="${k}">${badgeOf(p)}<span>${esc(p.label)}</span><small>${esc(p.sub || '')}${p.closure && ACTIVE_CLOSURES.some(c => c.id === p.closure) ? ' · closed' : ''}</small></button>`).join('')
+    : '<div class="none">No track, sector, tram stop or exit matches.</div>';
+  f.list.hidden = false; f.input.setAttribute('aria-expanded', 'true');
+  f.list.querySelectorAll('[data-k]').forEach(b => b.addEventListener('pointerdown', (ev) => { ev.preventDefault(); setPlace(which, f.items[Number(b.dataset.k)], true); }));
+}
+function hideSugg(which) { const f = fields[which]; f.list.hidden = true; f.input.setAttribute('aria-expanded', 'false'); }
+function moveActive(which, d) {
+  const f = fields[which]; if (!f.items.length) return;
+  f.active = (f.active + d + f.items.length) % f.items.length;
+  f.list.querySelectorAll('[data-k]').forEach((b, k) => b.setAttribute('aria-selected', String(k === f.active)));
+  const el = f.list.querySelector(`[data-k="${f.active}"]`); if (el) el.scrollIntoView({ block: 'nearest' });
+}
+function setPlace(which, p, compute) {
+  nav[which] = p || null;
+  const f = fields[which];
+  f.input.value = p ? p.label : '';
+  f.clr.hidden = !p;
+  hideSugg(which);
+  if (compute) {
+    if (nav.from && nav.to) computeRoute(true);
+    else if (p) { const other = which === 'from' ? 'to' : 'from'; if (sheetMode !== 'search') setSheetMode('search', 'half'); fields[other].input.focus(); }
+  }
+  writeHash();
+}
+for (const which of ['from', 'to']) {
+  const f = fields[which];
+  f.input.addEventListener('focus', () => { f.input.select(); showSugg(which); sheetTyping(true); });
+  f.input.addEventListener('input', () => { nav[which] = null; f.clr.hidden = !f.input.value; showSugg(which); });
+  f.input.addEventListener('blur', () => setTimeout(() => {
+    hideSugg(which); if (nav[which]) f.input.value = nav[which].label;
+    if (!document.activeElement || !document.activeElement.matches('.field input')) sheetTyping(false);
+  }, 120));
+  f.input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowDown') { ev.preventDefault(); if (f.list.hidden) showSugg(which); else moveActive(which, 1); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); moveActive(which, -1); }
+    else if (ev.key === 'Enter') { ev.preventDefault(); if (f.items[f.active]) setPlace(which, f.items[f.active], true); }
+    else if (ev.key === 'Escape') { hideSugg(which); f.input.blur(); }
+  });
+  f.clr.addEventListener('click', () => { setPlace(which, null, false); clearRouteView(); f.input.focus(); });
+}
+document.getElementById('swapBtn').addEventListener('click', () => {
+  const a = nav.from, b = nav.to;
+  setPlace('from', b, false); setPlace('to', a, false);
+  if (nav.from && nav.to) computeRoute(true);
+});
+const profileSeg = document.getElementById('profileSeg');
+function syncProfile() {
+  profileSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.prof === nav.profile)));
+  document.getElementById('profNote').textContent = PROFILE_TEXT[nav.profile];
+}
+profileSeg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  nav.profile = b.dataset.prof; syncProfile(); writeHash();
+  if (nav.from && nav.to) computeRoute(true);
+}));
+document.getElementById('routeOnly').addEventListener('change', (ev) => { nav.fadeOthers = ev.target.checked; recolor(); });
+document.getElementById('fitBtn').addEventListener('click', () => { if (nav.step) fitStep(); else fitRoute(); });
+function syncRouteButtons() {
+  document.getElementById('fitBtn').hidden = !nav.route;
+}
+function clearRouteView() { if (state.sel && state.sel.type === 'route') clearSel(); else syncRouteButtons(); }
+
+// route steps: walking merged; stairs / escalators / lifts with direction and where they lead
+const ZONE_STOREY = (zi) => D.zones[zi].storey;
+const STREET_SET = new Set((NAV && NAV.street) || []);
+function placeName(node) {
+  const nm = NAV.area_names[NAV.node_area[node]];
+  const zi = N[node][3];
+  return `${nm || ZONE_SHORT[D.zones[zi].id] || D.zones[zi].name} <span class="muted">(${ZONE_STOREY(zi)})</span>`;
+}
+function liftLabel(li) { const lf = L[li]; return lf.sbb || (lf.ref ? lf.ref : 'without ID') ; }
+function routeSteps(route) {
+  const raw = [];
+  for (const [k, dir] of route.path) {
+    const e = E[k], t = TYPES[e[2]];
+    const a = dir > 0 ? e[0] : e[1], b = dir > 0 ? e[1] : e[0];
+    if (t === 'walkway' || (t === 'ramp' && Math.abs(N[b][2] - N[a][2]) < 0.5)) {   // a level ramp is walking
+      // a walk is split where it moves between street level and a mapped hall / passage / platform
+      // street level: OSM outdoor paths near the station, tram links, level ramps, and ground-floor walks outside any mapped area
+      const outside = STREET_SET.has(k) || t === 'ramp' ||
+        (D.zones[N[b][3]].id === 'L0' && !NAV.area_names[NAV.node_area[a]] && !NAV.area_names[NAV.node_area[b]]);
+      let w = raw[raw.length - 1];
+      if (!w || w.t !== 'walk' || w.outside !== outside) { w = { t: 'walk', len: 0, time: 0, by: new Map(), to: b, street: 0, outside }; raw.push(w); }
+      w.len += e[3]; w.time += e[4]; w.to = b; if (outside) w.street += e[3];
+      const nm = NAV.area_names[NAV.node_area[b]] || NAV.area_names[NAV.node_area[a]] || '';
+      w.by.set(nm, (w.by.get(nm) || 0) + e[3]);
+      continue;
+    }
+    if (t === 'lift') {
+      const li = liftByNode.get(e[0]); const last = raw[raw.length - 1];
+      if (last && last.t === 'lift' && last.li === li) { last.to = b; last.time += e[4]; last.len += e[3]; }
+      else raw.push({ t: 'lift', li, from: a, to: b, time: e[4], len: e[3], n: 1 });
+      continue;
+    }
+    raw.push({ t, from: a, to: b, time: e[4], len: e[3], n: 1 });
+  }
+  // walking pieces shorter than 25 m between two walks join their neighbour, then neighbouring walks of one kind merge
+  const joinWalk = (x, y) => { x.len += y.len; x.time += y.time; x.street += y.street; x.to = y.to; for (const [nm, l] of y.by) x.by.set(nm, (x.by.get(nm) || 0) + l); };
+  for (let pass = 0; pass < 2; pass++) for (let i = 0; i < raw.length; i++) {
+    const s = raw[i], prev = raw[i - 1], next = raw[i + 1];
+    if (s.t !== 'walk') continue;
+    if (prev && prev.t === 'walk' && (prev.outside === s.outside || s.len < 25 || prev.len < 25)) {
+      if (s.len > prev.len) prev.outside = s.outside;
+      joinWalk(prev, s); raw.splice(i, 1); i--;
+    } else if (pass === 1 && next && next.t === 'walk' && s.len < 25) { joinWalk(s, next); s.outside = next.outside; raw.splice(i + 1, 1); i--; }
+  }
+  // a flight, a short landing walk (< 15 m) and another flight of the same kind and direction count as one step
+  const out = [];
+  for (const s of raw) {
+    const p1 = out[out.length - 1], p2 = out[out.length - 2];
+    const dirOf = (x) => Math.sign(N[x.to][2] - N[x.from][2]);
+    if (s.t !== 'walk' && s.t !== 'lift' && p1 && p1.t === 'walk' && p1.len < 15 && p2 && p2.t === s.t && dirOf(p2) === dirOf(s)) {
+      p2.to = s.to; p2.n += s.n; p2.time += p1.time + s.time; p2.len += p1.len + s.len; out.pop(); continue;
+    }
+    out.push(s);
+  }
+  // walks shorter than 3 m (e.g. from a tram platform to the top of a stair) are folded into the next step
+  const res = [];
+  for (let i = 0; i < out.length; i++) {
+    const s = out[i];
+    if (s.t === 'walk' && s.len < 3 && out.length > 1) {   // also merges a short walk into the previous one
+      const t = out[i + 1] || res[res.length - 1];
+      if (t) { t.time += s.time; t.len += s.len; continue; }
+    }
+    res.push(s);
+  }
+  return res;
+}
+const arrowOf = (s) => { const dz = N[s.to][2] - N[s.from][2]; return dz > 0.5 ? '↑' : dz < -0.5 ? '↓' : ''; };
+const routeIcon = (svg) => svg.replace(/var\(--c-(stairs|escalator|lift|ramp)\)/g, 'var(--route-conn)');
+// one step as parts (icon, text, metres/time, note): used by the step list and by the step-by-step guide
+function stepParts(s) {
+  const m = `${s.len >= 1 ? Math.round(s.len) + ' m · ' : ''}${fmtTime(s.time)}`;
+  if (s.t === 'walk') {
+    let area = '', bestL = -1; for (const [nm, l] of s.by) if (nm && l > bestL) { area = nm; bestL = l; }
+    const where = s.street > s.len / 2 ? ' at street level' : area ? (area.startsWith('Gleis') ? ` along ${esc(area)}` : ` through ${esc(area)}`) : '';
+    return { ic: '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="3" fill="var(--muted)"/></svg>', text: `Walk ${Math.round(s.len)} m${where}`, m, note: '' };
+  }
+  if (s.t === 'lift') {
+    const lf = L[s.li];
+    return { ic: routeIcon(legendIcon.lift), text: `<b>Lift ${esc(liftLabel(s.li))}</b> ${arrowOf(s)} to ${placeName(s.to)}`, m, note: lf.inclined ? 'Inclined lift' : '' };
+  }
+  const name = s.t === 'stairs' ? 'Stairs' : s.t === 'escalator' ? 'Escalator' : 'Ramp';
+  return { ic: routeIcon(legendIcon[s.t] || ''), text: `<b>${s.n > 1 ? s.n + '× ' : ''}${name} ${arrowOf(s)}</b> to ${placeName(s.to)}`, m, note: '' };
+}
+function stepHtml(s, i) {
+  const p = stepParts(s);
+  return `<li data-step="${i}"><span class="ic">${p.ic}</span><span>${p.text}</span><span class="m">${p.m}</span>${p.note ? `<small>${p.note}</small>` : ''}</li>`;
+}
+function sectorOfNode(i) {
+  for (const p of PLACES) if (p.kind === 'sector' && p.nodes.includes(i)) return p;
+  return null;
+}
+// where a route from a place starts: tracks 3-18 start at the platform head (hall end), unless a sector is chosen
+const startNodes = (p) => p.start_nodes || p.nodes;
+function routeStoreysOf(route) {
+  const set = new Set();
+  for (const [k] of route.path) { const e = E[k]; set.add(ZONE_STOREY(N[e[0]][3])); set.add(ZONE_STOREY(N[e[1]][3])); }
+  return set;
+}
+function computeRoute(fit) {
+  if (!nav.from || !nav.to) return;
+  hideSugg('from'); hideSugg('to');
+  state.sel = { type: 'route' }; state.tracks = null; hiConn = new Set(); hiLift = new Set();
+  nav.message = null; nav.step = null; hidePeek(); snapBeforeTyping = null;
+  if (document.activeElement && document.activeElement.matches('.field input')) document.activeElement.blur();
+  let r = null;
+  if (nav.from.id === nav.to.id) nav.message = 'Start and destination are the same place.';
+  else {
+    r = dijkstra(startNodes(nav.from), nav.to.nodes, nav.profile, CLOSED_EDGES_ACTIVE);
+    if (!r) {
+      const closedP = [nav.from, nav.to].find(p => p.closure && ACTIVE_CLOSURES.some(c => c.id === p.closure));
+      const c = closedP && ACTIVE_CLOSURES.find(c => c.id === closedP.closure);
+      if (c) nav.message = `${closedP.label} is closed until ${fmtDay(closureEnd(c))}${c.reopens ? ` (reopens ${fmtDay(c.reopens)})` : ''}.`;
+      else if (nav.profile !== 'standard' && dijkstra(startNodes(nav.from), nav.to.nodes, 'standard', CLOSED_EDGES_ACTIVE))
+        nav.message = `There is no ${PROFILE_LABEL[nav.profile].toLowerCase()} route between these places in the model. A standard route exists.`;
+      else nav.message = 'There is no route between these places in the model.';
+    }
+  }
+  nav.route = r;
+  nav.routeStoreys = r ? routeStoreysOf(r) : new Set();
+  currentRoutes = r ? [{ route: r, token: nav.profile === 'step_free' ? '--route-sf' : '--route', width: 6, dashed: nav.profile === 'step_free' }] : [];
+  if (r) for (const [k] of r.path) {
+    const t = TYPES[E[k][2]];
+    if (t === 'lift') hiLift.add(liftByNode.get(E[k][0]));
+    else if (t !== 'walkway' && connByEdge.has(k)) hiConn.add(connByEdge.get(k));
+  }
+  if (state.focus && r && !nav.routeStoreys.has(state.focus)) { state.focus = null; syncStoreyButtons(); }
+  drawRoutes(); recolor(); renderRouteCard(); syncRouteButtons();
+  setSheetMode('route', 'half');
+  if (r && fit) fitRoute();
+}
+function routeStartText() {
+  const r = nav.route; if (!r) return '';
+  const e0 = E[r.path[0][0]]; const ssec = sectorOfNode(r.path[0][1] > 0 ? e0[0] : e0[1]);
+  return `Start at <b>${esc(nav.from.label)}</b>${nav.from.kind === 'track' ? (nav.from.start_nodes ? ', platform head (Querhalle side)' : ssec ? `, sector ${ssec.sector}` : '') : ''}`;
+}
+function routeArriveText() {
+  const sec = sectorOfNode(nav.route.target);
+  return `Arrive at <b>${esc(nav.to.label)}</b>${sec && nav.to.kind === 'track' ? `, sector ${sec.sector}` : ''}`;
+}
+function renderSummaryRow() {
+  const rs = document.getElementById('routeSummary');
+  rs.innerHTML = `
+    <div class="pl">
+      <span><b class="pinb" style="background:var(--fg)">A</b>${esc(nav.from ? nav.from.label : '–')}</span>
+      <span><b class="pinb" style="background:var(--route)">B</b>${esc(nav.to ? nav.to.label : '–')}</span>
+      <small>${esc(PROFILE_LABEL[nav.profile])}</small>
+    </div>
+    <button class="btn small" id="editBtn">Change</button>`;
+  rs.querySelector('#editBtn').onclick = () => { nav.step = null; setSheetMode('search', 'full'); };
+}
+function renderRouteCard() {
+  const r = nav.route;
+  renderSummaryRow();
+  const notes = [nav.from, nav.to].filter(p => p && p.note).map(p => `<div class="warn">${esc(p.label)}: ${esc(p.note)}</div>`).join('');
+  let body = '';
+  if (!r) body = `<div class="warn">${esc(nav.message || 'No route.')}</div>
+    <div class="actions"><button class="btn" id="changeBtn">Change</button><button class="btn" id="newBtn">New route</button></div>`;
+  else {
+    const steps = routeSteps(r);
+    const d = describe(r);
+    const cnt = { stairs: 0, escalator: 0, lift: 0 };
+    for (const s of steps) if (s.t in cnt) cnt[s.t] += s.t === 'lift' ? 1 : s.n;
+    const parts = [cnt.stairs && `${cnt.stairs} stairs`, cnt.escalator && `${cnt.escalator} escalator${cnt.escalator > 1 ? 's' : ''}`, cnt.lift && `${cnt.lift} lift${cnt.lift > 1 ? 's' : ''}`].filter(Boolean);
+    body = `<div class="rsum"><span class="big">${fmtTime(r.time)}</span><span class="muted">min · ${Math.round(d.len)} m · ${parts.length ? parts.join(', ') : 'level walk'}</span></div>
+      <div class="actions"><button class="btn primary" id="stepsBtn">Step by step</button><button class="btn" id="newBtn">New route</button></div>
+      <ol class="steps">
+        <li data-step="0"><span class="ic"><b class="pinb" style="background:var(--fg)">A</b></span><span>${routeStartText()}</span><span></span></li>
+        ${steps.map((s, i) => stepHtml(s, i + 1)).join('')}
+        <li data-step="${steps.length + 1}"><span class="ic"><b class="pinb" style="background:var(--route)">B</b></span><span>${routeArriveText()}</span><span></span></li>
+      </ol>
+      ${CLOSED_EDGES_ACTIVE ? `<p class="fine" style="margin-top:8px">Closed areas are avoided: ${ACTIVE_CLOSURES.filter(c => NAV && NAV.closure_edges && NAV.closure_edges[c.id]).map(c => esc(c.what.split(/[,(]/)[0].trim()) + ' until ' + fmtDay(closureEnd(c))).join('; ')}.</p>` : ''}
+      <p class="fine">Times use walking 1.3 m/s, stairs 0.6 m/s, escalators 0.75 m/s and lifts 30 s wait + 1 m/s.</p>`;
+  }
+  card.innerHTML = `${notes}${body}`;
+  card.hidden = false;
+  const q = (id) => card.querySelector(id);
+  if (q('#newBtn')) q('#newBtn').onclick = resetAll;
+  if (q('#changeBtn')) q('#changeBtn').onclick = () => setSheetMode('search', 'full');
+  if (q('#stepsBtn')) q('#stepsBtn').onclick = () => enterStep(0);
+  card.querySelectorAll('[data-step]').forEach(li => li.onclick = () => enterStep(Number(li.dataset.step)));
+}
+
+// ------------------------------------------------------------------ step-by-step guide
+// The route's node sequence is cut into the same steps as the step list: [start, ...steps, arrive].
+// Each step knows its piece of the route (path[a..b)), which is drawn wider and framed by the camera.
+function routeNodeSeq(r) {
+  const seq = [];
+  for (const [k, dir] of r.path) { const e = E[k]; const a = dir > 0 ? e[0] : e[1], b = dir > 0 ? e[1] : e[0]; if (!seq.length) seq.push(a); seq.push(b); }
+  return seq;
+}
+function stepPlan(r) {
+  const steps = routeSteps(r), seq = routeNodeSeq(r);
+  const plan = [{ kind: 'start', a: 0, b: 0 }];
+  let ia = 0;
+  for (const st of steps) {
+    let ib = seq.indexOf(st.to, ia + 1); if (ib < 0) ib = ia;
+    plan.push({ kind: st.t, s: st, a: ia, b: ib }); ia = ib;
+  }
+  plan.push({ kind: 'arrive', a: ia, b: seq.length - 1 });
+  return { plan, seq };
+}
+function enterStep(i) {
+  if (!nav.route) return;
+  hidePeek();
+  if (!nav.plan || nav.plan.route !== nav.route) nav.plan = { route: nav.route, ...stepPlan(nav.route) };
+  const { plan, seq } = nav.plan;
+  i = Math.max(0, Math.min(plan.length - 1, i));
+  const p = plan[i];
+  const nodes = p.kind === 'start' ? [seq[0]] : p.kind === 'arrive' ? [seq[seq.length - 1]] : seq.slice(p.a, p.b + 1);
+  const storeys = new Set(nodes.map(n => ZONE_STOREY(N[n][3])));
+  nav.step = { i, a: p.kind === 'start' ? 0 : p.a, b: p.kind === 'start' ? 0 : p.b, nodes, storeys };
+  if (state.view === 'section') setView('overview');
+  if (state.view === 'top') {          // top-down shows one storey: follow the step's last storey
+    const last = ZONE_STOREY(N[nodes[nodes.length - 1]][3]);
+    if (last !== state.topStorey) setView('top', last);
+  }
+  drawRoutes(); recolor(); renderStepView();
+  setSheetMode('step', 'peek');
+  fitStep();
+}
+function exitStep() {
+  nav.step = null;
+  drawRoutes(); recolor(); renderRouteCard();
+  setSheetMode('route', 'half');
+  fitRoute();
+}
+function renderStepView() {
+  const { plan } = nav.plan; const i = nav.step.i; const p = plan[i];
+  let ic, text, m = '', note = '';
+  if (p.kind === 'start') { ic = '<b class="pinb" style="background:var(--fg)">A</b>'; text = routeStartText(); }
+  else if (p.kind === 'arrive') { ic = '<b class="pinb" style="background:var(--route)">B</b>'; text = routeArriveText(); }
+  else ({ ic, text, m, note } = stepParts(p.s));
+  const last = i === plan.length - 1;
+  card.innerHTML = `
+    <div class="stepview">
+      <div class="sv-head"><span class="eyebrow">Step ${i + 1} of ${plan.length}</span><button class="linkbtn" id="svList">All steps</button></div>
+      <div class="sv-main"><span class="sv-ic">${ic}</span><div class="sv-text">${text}${m ? `<div class="sv-m">${m}</div>` : ''}${note ? `<small>${note}</small>` : ''}</div></div>
+      <div class="sv-nav"><button class="btn" id="svPrev" ${i === 0 ? 'disabled' : ''}>‹ Back</button><button class="btn primary" id="svNext">${last ? 'Done' : 'Next ›'}</button></div>
+    </div>`;
+  card.hidden = false;
+  card.querySelector('#svList').onclick = exitStep;
+  card.querySelector('#svPrev').onclick = () => enterStep(i - 1);
+  card.querySelector('#svNext').onclick = () => last ? exitStep() : enterStep(i + 1);
+}
+function fitStep() {
+  if (!nav.step) return;
+  const box = new THREE.Box3();
+  for (const n of nav.step.nodes) box.expandByPoint(nodeWorld(n));
+  flyToBox(box, nav.step.nodes.length === 1 ? 40 : 16);      // start / arrive: a bit of context around the point
+}
+
+// ------------------------------------------------------------------ camera: fit a box into the part of the screen above the sheet
+let flight = null;
+function visFrac() { const H = stage.clientHeight || 1; const v = viewInsets(); return Math.max(0.3, (H - v.top - v.bottom) / H); }
+function visFracW() { const W = stage.clientWidth || 1; return Math.max(0.3, (W - viewInsets().left) / W); }
+function flyToBox(box, minRad = 30) {
+  const c = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const rad = Math.max(minRad, Math.max(size.x, size.z, size.y * 1.5) / 2 + 10);
+  const f = visFrac();
+  if (camera === persp) {
+    let dir = persp.position.clone().sub(controls.target).normalize();
+    const el = THREE.MathUtils.clamp(Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1)), THREE.MathUtils.degToRad(32), THREE.MathUtils.degToRad(68));
+    const hz = new THREE.Vector3(dir.x, 0, dir.z); if (hz.lengthSq() < 1e-6) hz.set(0, 0, 1); hz.normalize();
+    dir = hz.multiplyScalar(Math.cos(el)).add(new THREE.Vector3(0, Math.sin(el), 0));
+    const t = Math.tan(THREE.MathUtils.degToRad(persp.fov / 2));
+    const dist = Math.max(rad / (t * f), rad / (t * persp.aspect * visFracW())) * 1.08;
+    startFlight(c, c.clone().addScaledVector(dir, Math.max(dist, controls.minDistance + 1)), null);
+  } else {
+    const tT = new THREE.Vector3(c.x, controls.target.y, c.z);
+    const tP = new THREE.Vector3(c.x, ortho.position.y, c.z);
+    const hh = ortho.top, hw = ortho.right;                    // half sizes at zoom 1
+    const zoom = Math.min(hw * visFracW() / (rad * 1.1), hh * f / (rad * 1.1));
+    if (state.view === 'section') { startFlight(controls.target.clone(), ortho.position.clone(), null); return; }
+    startFlight(tT, tP, THREE.MathUtils.clamp(zoom, 0.2, 40));
+  }
+}
+function startFlight(toTarget, toPos, toZoom) {
+  flight = { t0: performance.now(), dur: reduceMotion ? 0 : 650, fT: controls.target.clone(), fP: camera.position.clone(), tT: toTarget, tP: toPos,
+    fZ: camera.zoom, tZ: toZoom };
+  invalidate();
+}
+function stepFlight() {
+  if (!flight) return false;
+  const u = flight.dur ? Math.min(1, (performance.now() - flight.t0) / flight.dur) : 1;
+  const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+  controls.target.lerpVectors(flight.fT, flight.tT, e);
+  camera.position.lerpVectors(flight.fP, flight.tP, e);
+  if (flight.tZ) { camera.zoom = flight.fZ + (flight.tZ - flight.fZ) * e; camera.updateProjectionMatrix(); }
+  if (u >= 1) flight = null;
+  return true;
+}
+function fitRoute() {
+  if (!nav.route) return;
+  if (state.view === 'section') setView('overview');
+  const box = new THREE.Box3();
+  for (const [k] of nav.route.path) { box.expandByPoint(nodeWorld(E[k][0])); box.expandByPoint(nodeWorld(E[k][1])); }
+  flyToBox(box, 30);
+}
+// shareable state in the URL hash: #from=trk:7&to=exit:bahnhofplatz&p=step_free
+function writeHash() {
+  const h = new URLSearchParams();
+  if (nav.from) h.set('from', nav.from.id);
+  if (nav.to) h.set('to', nav.to.id);
+  if (nav.profile !== 'standard') h.set('p', nav.profile);
+  const s = h.toString();
+  history.replaceState(null, '', s ? '#' + s : location.pathname + location.search);
+}
+function readHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (PROFILES[h.get('p')]) nav.profile = h.get('p');
+  syncProfile();
+  const f = placeById.get(h.get('from')), t = placeById.get(h.get('to'));
+  if (f) setPlace('from', f, false);
+  if (t) setPlace('to', t, false);
+  if (f && t) computeRoute(true);
+}
+// for the browser test: the page's own route between two places, as validate_graph.py reports it
+function routeTest(fromId, toId, profile, closures = false) {
+  const f = placeById.get(fromId), t = placeById.get(toId);
+  const r = dijkstra(startNodes(f), t.nodes, profile, closures);
+  if (!r) return null;
+  const lifts = [];
+  for (const [k] of r.path) if (TYPES[E[k][2]] === 'lift') { const lf = L[liftByNode.get(E[k][0])]; const id = lf ? (lf.sbb || lf.id) : '?'; if (!lifts.includes(id)) lifts.push(id); }
+  return { time: r.time, lifts };
+}
+if (!NAV) { document.getElementById('routeSec').hidden = true; }
+
+// ------------------------------------------------------------------ picking
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+let down = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+renderer.domElement.addEventListener('pointerup', (e) => {
+  if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8 || performance.now() - down.t > 600) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const objs = [stairMesh, slabMesh, shaftMesh, coreMesh, plateMesh, ...floorMeshes.filter(m => m.parent.visible), ...(state.shops ? shopMeshes : []), ...tramMeshes];
+  const hits = ray.intersectObjects(objs, false).filter(h => clipOk(h.point) && !isFaded(h.object));
+  if (!hits.length) { hidePeek(); return; }
+  const h = hits[0];
+  const o = h.object;
+  if (o === stairMesh) peekConn(stairInst[h.instanceId]);
+  else if (o === slabMesh) peekConn(escs[h.instanceId]);
+  else if (o === shaftMesh || o === coreMesh) peekLift(liftSeg[h.instanceId]);
+  else if (o === plateMesh) peekLift(liftStop[h.instanceId]);
+  else if (o.userData.tram !== undefined) peekTram(o.userData.tram);
+  else if (o.userData.area !== undefined) peekArea(o.userData.area);
+});
+
+// ------------------------------------------------------------------ tap info card ("peek"): never clears the current route
+const peek = document.getElementById('peek');
+function hidePeek() { if (!peek.hidden) { peek.hidden = true; peek.innerHTML = ''; } }
+function showPeek(html) {
+  peek.innerHTML = `<button class="close" aria-label="Close">×</button>${html}`;
+  peek.hidden = false;
+  peek.querySelector('.close').onclick = hidePeek;
+  peek.querySelectorAll('[data-from],[data-to]').forEach(b => b.onclick = () => {
+    const which = b.dataset.from ? 'from' : 'to';
+    const pl = placeById.get(b.dataset.from || b.dataset.to);
+    hidePeek();
+    if (!pl) return;
+    if (nav.step) nav.step = null;
+    setPlace(which, pl, true);
+  });
+}
+const fromTo = (id) => NAV && placeById.has(id) ? `<button class="btn small" data-from="${esc(id)}">From here</button><button class="btn small" data-to="${esc(id)}">To here</button>` : '';
+function peekArea(ai) {
+  const a = D.areas[ai]; const g = GROUPS[a.group];
+  const c = a.closed && D.closures.find(x => x.id === a.closed);
+  showPeek(`
+    <div class="eyebrow">${esc(zoneName(zoneIdx[a.zone]))}</div>
+    <h3>${esc(a.name)}</h3>
+    ${c ? `<p style="color:var(--closed)"><b>Closed</b> until ${esc(fmtDay(closureEnd(c)))}.</p>` : ''}
+    <div class="pk-rows">${a.tracks.map(t => `<div class="pk-row"><span class="k" style="background:var(${g.token})">${t}</span>${fromTo('trk:' + t)}</div>`).join('')}</div>
+    <button class="linkbtn" id="pkWays">All ways onto this platform</button>`);
+  peek.querySelector('#pkWays').onclick = () => { hidePeek(); nav.step = null; selectArea(ai); };
+}
+function peekTram(ti) {
+  const stop = NAV.transit[ti];
+  const c = stop.closure && ACTIVE_CLOSURES.find(x => x.id === stop.closure);
+  showPeek(`
+    <div class="eyebrow">Tram stop · street level</div>
+    <h3>${esc(stop.name)}</h3>
+    <p>${stop.lines.length ? stop.lines.map(l => `Tram ${esc(l)}`).join(', ') : ''}</p>
+    ${c ? `<p style="color:var(--closed)"><b>Closed</b> until ${fmtDay(closureEnd(c))}.</p>` : ''}
+    <div class="pk-rows"><div class="pk-row"><span class="k" style="background:var(--tram)">T</span>${fromTo(stop.place)}</div></div>`);
+}
+function peekConn(i) {
+  const c = C[i]; const za = N[c.a], zb = N[c.b];
+  const typeName = c.t === 'stairs' ? 'Stairs' : c.t === 'escalator' ? 'Escalator' : 'Ramp';
+  const dir = c.t === 'escalator' ? (c.dir === 'up' ? 'runs up ↑' : c.dir === 'down' ? 'runs down ↓' : esc(c.dir)) : 'both directions';
+  showPeek(`
+    <div class="eyebrow">${legendIcon[c.t] || ''} ${typeName} · ${dir}</div>
+    <h3>${esc(zoneName(za[3]))} ⇄ ${esc(zoneName(zb[3]))}</h3>
+    <p class="mono muted">${za[2].toFixed(1)} m → ${zb[2].toFixed(1)} m${c.steps ? ` · ${c.steps} steps` : ''}</p>`);
+}
+function peekLift(li) {
+  const lf = L[li];
+  const stops = lf.stops.slice().sort((u, v) => N[v][2] - N[u][2]);
+  showPeek(`
+    <div class="eyebrow">${legendIcon.lift} Lift${lf.inclined ? ' (inclined)' : ''}</div>
+    <h3>${esc(lf.sbb || lf.ref || lf.id)}</h3>
+    <p>${stops.map(s => esc(zoneName(N[s][3]))).join('<br>')}</p>`);
+}
+function isFaded(o) {
+  if (o.userData.tram !== undefined) return storeyFaded('E0');
+  if (o.userData.shop !== undefined) return storeyFaded(SHOPS[o.userData.shop].storey);
+  if (o.userData.area === undefined) return false;
+  return storeyFaded(o.parent.name);
+}
+function clipOk(p) { return renderer.clippingPlanes.every(pl => pl.distanceToPoint(p) >= -0.01); }
+
+// ------------------------------------------------------------------ views
+const SECTION_DEPTH = 160;
+const axisW = new THREE.Vector3(D.meta.track_axis[0], 0, -D.meta.track_axis[1]).normalize();
+let tMin = Infinity, tMax = -Infinity;
+for (const a of D.areas) for (const r of a.polys[0]) for (let i = 0; i < r.length; i += 2) { const [x, z] = W(r[i], r[i + 1]); const t = x * axisW.x + z * axisW.z; tMin = Math.min(tMin, t); tMax = Math.max(tMax, t); }
+function stackMidY() { return ((REF - 4) - REF) * VEX + storeyOffset(2); }
+function sizeOrtho(w, h) {
+  const asp = stage.clientWidth / stage.clientHeight;
+  let hw = w / 2, hh = h / 2;
+  if (hw / hh > asp) hh = hw / asp; else hw = hh * asp;
+  ortho.left = -hw; ortho.right = hw; ortho.top = hh; ortho.bottom = -hh; ortho.zoom = 1; ortho.updateProjectionMatrix();
+}
+function setView(view, storey) {
+  state.view = view; flight = null;
+  document.querySelectorAll('#views button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+  document.getElementById('cutRow').hidden = view !== 'section';
+  renderer.clippingPlanes = [];
+  for (const l of labelObjs) if (l.kind === 'storey') { l.obj.position.copy(l.obj.userData.home); l.obj.center.set(1, 0.5); }
+  if (view === 'overview') {
+    camera = persp;
+    const narrow = stage.clientWidth < 760;
+    const portrait = stage.clientHeight > stage.clientWidth * 1.15;
+    if (portrait) {
+      // phone upright: look from above the Querhalle along the tracks, so the station runs up the screen
+      const target = new THREE.Vector3(0, stackMidY(), 0).addScaledVector(axisW, SPAN * 0.02);
+      const el = THREE.MathUtils.degToRad(50);
+      const hz = axisW.clone().applyAxisAngle(UP, THREE.MathUtils.degToRad(-12));
+      const dist = SPAN * 1.55;
+      persp.position.copy(target).addScaledVector(hz, dist * Math.cos(el)).add(new THREE.Vector3(0, dist * Math.sin(el), 0));
+      makeControls(persp, target);
+      persp.lookAt(target);
+      syncStoreyButtons(); recolor();
+      return;
+    }
+    const target = new THREE.Vector3(SPAN * 0.04, stackMidY(), 0);
+    const az = THREE.MathUtils.degToRad(24), el = THREE.MathUtils.degToRad(32);
+    const dist = SPAN * (narrow ? 1.2 : 0.98);
+    persp.position.set(target.x + dist * Math.cos(el) * Math.sin(az), target.y + dist * Math.sin(el), target.z + dist * Math.cos(el) * Math.cos(az));
+    makeControls(persp, target);
+    persp.lookAt(target);
+  } else if (view === 'top') {
+    state.topStorey = storey || state.focus || state.topStorey || 'E0';
+    state.focus = state.topStorey;
+    const s = storeyById[state.topStorey];
+    const y = (s.z_range_m_asl[1] - REF) * VEX + storeyOffset(s.order);
+    renderer.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, -1, 0), y + 4)];
+    camera = ortho;
+    // frame this storey's areas; on portrait screens turn the plan so the tracks run up the screen
+    const portrait = stage.clientHeight > stage.clientWidth * 1.15;
+    const upV = portrait ? axisW.clone() : new THREE.Vector3(0, 0, -1);
+    const rightV = new THREE.Vector3().crossVectors(upV, UP).negate();
+    let a1 = Infinity, b1 = -Infinity, a2 = Infinity, b2 = -Infinity;
+    for (const a of D.areas) if (s.zones.includes(a.zone)) for (const r of a.polys[0]) for (let i = 0; i < r.length; i += 2) {
+      const [x, z] = W(r[i], r[i + 1]); const u = x * rightV.x + z * rightV.z, v = x * upV.x + z * upV.z;
+      a1 = Math.min(a1, u); b1 = Math.max(b1, u); a2 = Math.min(a2, v); b2 = Math.max(b2, v);
+    }
+    const cu = (a1 + b1) / 2, cv = (a2 + b2) / 2;
+    const target = new THREE.Vector3(rightV.x * cu + upV.x * cv, y, rightV.z * cu + upV.z * cv);
+    ortho.up.copy(upV);
+    ortho.position.set(target.x, y + 1500, target.z);
+    const pad = stage.clientWidth > 760 ? 1.5 : 1.1;
+    sizeOrtho((b1 - a1) * pad, (b2 - a2) * pad / visFrac());     // fit into the part above the sheet
+    makeControls(ortho, target);
+    ortho.lookAt(target);
+  } else if (view === 'section') {
+    state.focus = null;
+    camera = ortho;
+    applyCut();
+  }
+  syncStoreyButtons(); recolor();
+}
+function applyCut() {
+  const t = tMin + (tMax - tMin) * state.cut;
+  renderer.clippingPlanes = [new THREE.Plane(axisW.clone(), -t), new THREE.Plane(axisW.clone().negate(), t + SECTION_DEPTH)];
+  state.cutT = t;
+  const centre = axisW.clone().multiplyScalar(t);
+  const target = new THREE.Vector3(centre.x, stackMidY(), centre.z);
+  ortho.up.set(0, 1, 0);
+  ortho.position.copy(target).addScaledVector(axisW, -1500);
+  const sideExt = SPAN * 0.75;
+  const height = (17 * VEX + 4 * GAP * state.explode) * 1.5 + 40;
+  sizeOrtho(sideExt, height);
+  makeControls(ortho, target);
+  ortho.lookAt(target);
+  const right = new THREE.Vector3().crossVectors(axisW, UP).normalize();
+  for (const l of labelObjs) if (l.kind === 'storey') {
+    const p = target.clone().addScaledVector(right, (ortho.right - ortho.left) / 2 * (stage.clientWidth > 760 ? 0.46 : 0.2));
+    l.obj.position.set(p.x, l.obj.userData.home.y, p.z); l.obj.center.set(0, 0.5);
+  }
+  document.getElementById('cutOut').textContent = `${Math.round(t - tMin)} m`;
+  if (labelObjs.length) recolor();
+}
+
+// ------------------------------------------------------------------ UI wiring
+const storeyBox = document.getElementById('storeys');
+const groupDots = (s) => {
+  const gs = new Set(D.areas.filter(a => a.kind === 'platform' && s.zones.includes(a.zone)).map(a => a.group));
+  return gs.size ? `<span class="dots">${[...gs].map(g => `<i style="background:var(${GROUPS[g].token})" title="${esc(GROUPS[g].name)}"></i>`).join('')}</span>` : '';
+};
+for (const s of D.storeys) {
+  const b = document.createElement('div');
+  b.className = 'storey'; b.setAttribute('role', 'button'); b.tabIndex = 0; b.dataset.storey = s.id; b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = `<span class="sid">${s.id}</span><span class="sname">${esc(STOREY_SHORT[s.id] || s.name)}${groupDots(s)}<small>${esc(STOREY_SUB[s.id] || '')}</small></span><span class="sz">${s.display_z_m_asl.toFixed(1)}</span><button class="top" data-top="${s.id}" aria-label="Top-down view of ${esc(STOREY_SHORT[s.id])}">Top</button>`;
+  const toggle = () => { state.focus = state.focus === s.id ? null : s.id; if (state.view === 'top' && state.focus) setView('top', s.id); else if (state.view === 'top') setView('overview'); syncStoreyButtons(); recolor(); };
+  b.addEventListener('click', (e) => { if (e.target.closest('[data-top]')) return; toggle(); closeMore(); });
+  b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+  b.querySelector('[data-top]').addEventListener('click', (e) => { e.stopPropagation(); setView('top', s.id); closeMore(); });
+  storeyBox.appendChild(b);
+}
+function syncStoreyButtons() { storeyBox.querySelectorAll('.storey').forEach(b => b.setAttribute('aria-pressed', String(state.focus === b.dataset.storey))); }
+document.querySelectorAll('#views button').forEach(b => b.addEventListener('click', () => {
+  if (nav.step && b.dataset.view === 'section') { nav.step = null; drawRoutes(); if (nav.route) { renderRouteCard(); setSheetMode('route', 'half'); } }
+  setView(b.dataset.view, b.dataset.view === 'top' ? (state.focus || 'E0') : undefined);
+  if (b.dataset.view !== 'section') closeMore();
+}));
+
+const explode = document.getElementById('explode');
+explode.addEventListener('input', () => {
+  state.explode = explode.value / 100;
+  document.getElementById('explodeOut').textContent = `${explode.value}%`;
+  for (const s of D.storeys) storeyGroups[s.id].position.y = storeyOffset(s.order);
+  layoutConnectors(); drawRoutes();
+  if (state.view === 'top') {
+    const s = storeyById[state.topStorey];
+    const y = (s.z_range_m_asl[1] - REF) * VEX + storeyOffset(s.order);
+    renderer.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, -1, 0), y + 4)];
+  }
+});
+const shopsToggle = document.getElementById('shopsToggle');
+if (!SH) { shopsToggle.checked = false; shopsToggle.disabled = true; shopsToggle.parentElement.title = 'data/hb_shops.js not found'; }
+shopsToggle.addEventListener('change', () => {
+  state.shops = shopsToggle.checked;
+  for (const g of Object.values(shopGroups)) g.visible = state.shops;
+  if (!state.shops && state.sel && state.sel.type === 'shop') clearSel(); else recolor();
+});
+const cut = document.getElementById('cut');
+cut.addEventListener('input', () => { state.cut = cut.value / 100; applyCut(); });
+
+const rail = document.getElementById('rail');
+const moreBtn = document.getElementById('moreBtn');
+function openMore() { hidePeek(); rail.hidden = false; moreBtn.setAttribute('aria-expanded', 'true'); }
+function closeMore() { if (rail.hidden) return; rail.hidden = true; moreBtn.setAttribute('aria-expanded', 'false'); invalidate(); }
+moreBtn.addEventListener('click', () => rail.hidden ? openMore() : closeMore());
+document.getElementById('moreClose').addEventListener('click', closeMore);
+document.getElementById('homeBtn').addEventListener('click', () => { hidePeek(); state.focus = null; setView('overview'); });
+document.getElementById('storeyChip').addEventListener('click', () => { if (nav.step) fitStep(); else if (state.focus) { state.focus = null; syncStoreyButtons(); recolor(); } });
+function syncStoreyChip() {
+  const chip = document.getElementById('storeyChip');
+  let ids = null;
+  if (nav.step) ids = [...new Set(nav.step.nodes.map(n => ZONE_STOREY(N[n][3])))];
+  else if (state.focus) ids = [state.focus];
+  chip.hidden = !ids;
+  if (ids) chip.innerHTML = ids.length === 1 ? `<b>${ids[0]}</b>${esc(STOREY_SHORT[ids[0]] || '')}${!nav.step ? ' ×' : ''}` : ids.map(id => `<b>${id}</b>`).join(' → ');
+}
+
+// ------------------------------------------------------------------ bottom sheet
+// modes: search (form), route (summary row + result), step (one step), info (a platform / stair / lift card)
+// heights: peek (about a third of the screen), half, full; never taller than its content
+const sheet = document.getElementById('sheet');
+const sheetBody = document.getElementById('sheetBody');
+const sheetInner = document.getElementById('sheetInner');
+const grab = document.getElementById('grab');
+const routeSecEl = document.getElementById('routeSec');
+const SNAPS = ['peek', 'half', 'full'];
+let sheetMode = 'search', snap = 'half', snapBeforeTyping = null, sheetTargetH = 240;
+function vv() { return window.visualViewport || { height: innerHeight, offsetTop: 0 }; }
+function cssPx(name) { const d = document.createElement('div'); d.style.cssText = `position:absolute;visibility:hidden;height:var(${name})`; document.body.appendChild(d); const h = d.offsetHeight; d.remove(); return h; }
+let SAT = 0;
+const sideQuery = window.matchMedia('(orientation: landscape) and (max-height: 520px)');
+const sideMode = () => sideQuery.matches;
+sideQuery.addEventListener('change', () => { applySnap(); resize(); });
+function snapHeights() {
+  const H = vv().height;
+  const maxH = H - SAT - 8;
+  const nat = grab.offsetHeight + sheetInner.offsetHeight;
+  const cap = (x) => Math.round(Math.min(nat, maxH, x));
+  return { peek: cap(Math.max(170, H * 0.32)), half: cap(H * 0.56), full: cap(maxH) };
+}
+function applySnap(name) {
+  if (name) snap = name;
+  if (sideMode()) { sheet.style.height = ''; sheetTargetH = 0; updateViewOffset(); return; }
+  const h = snapHeights()[snap];
+  sheetTargetH = h;
+  sheet.style.height = h + 'px';
+  updateViewOffset();
+}
+function setSheetMode(mode, toSnap) {
+  sheetMode = mode;
+  routeSecEl.hidden = mode !== 'search';
+  document.getElementById('routeSummary').hidden = mode !== 'route' || !nav.from || !nav.to;
+  sheetBody.scrollTop = 0;
+  applySnap(toSnap || snap);
+}
+function sheetTyping(on) {
+  if (on) { if (!snapBeforeTyping) snapBeforeTyping = snap; sheet.classList.add('kb'); applySnap('full'); }
+  else {
+    sheet.classList.remove('kb');
+    applySnap(snapBeforeTyping || 'half'); snapBeforeTyping = null;
+    window.scrollTo(0, 0);           // iOS may leave the page scrolled after the keyboard closes
+  }
+}
+new ResizeObserver(() => applySnap()).observe(sheetInner);
+// drag the handle; a tap steps through the heights
+let drag = null;
+grab.addEventListener('pointerdown', (e) => {
+  drag = { y: e.clientY, h: sheet.getBoundingClientRect().height, t: performance.now(), moved: false };
+  grab.setPointerCapture(e.pointerId); sheet.classList.add('dragging');
+});
+grab.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dy = e.clientY - drag.y; if (Math.abs(dy) > 4) drag.moved = true;
+  const hs = snapHeights();
+  sheet.style.height = Math.max(hs.peek * 0.6, Math.min(hs.full, drag.h - dy)) + 'px';
+});
+function endDrag(e) {
+  if (!drag) return;
+  sheet.classList.remove('dragging');
+  const hs = snapHeights();
+  if (!drag.moved) { const i = SNAPS.indexOf(snap); let n = SNAPS[(i + 1) % 3]; if (hs[n] === hs[snap]) n = SNAPS[(i + 2) % 3]; drag = null; applySnap(n); return; }
+  const h = sheet.getBoundingClientRect().height;
+  const v = (drag.y - e.clientY) / Math.max(1, performance.now() - drag.t);     // px/ms, up is positive
+  let best = snap, bd = Infinity;
+  for (const n of SNAPS) { const d = Math.abs(hs[n] - (h + v * 180)); if (d < bd) { bd = d; best = n; } }
+  drag = null; applySnap(best);
+}
+grab.addEventListener('pointerup', endDrag);
+grab.addEventListener('pointercancel', endDrag);
+grab.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); applySnap(SNAPS[(SNAPS.indexOf(snap) + 1) % 3]); } });
+// keyboard: keep the sheet on top of it (iOS shrinks only the visual viewport)
+function onViewport() {
+  const v = vv();
+  const kb = Math.max(0, Math.round(innerHeight - v.height - v.offsetTop));
+  document.documentElement.style.setProperty('--kb', (kb > 60 ? kb : 0) + 'px');
+  applySnap();
+}
+if (window.visualViewport) { visualViewport.addEventListener('resize', onViewport); visualViewport.addEventListener('scroll', onViewport); }
+// the model is centred in the part of the screen between the top bar and the sheet (camera view offset)
+function viewInsets() {
+  const H = stage.clientHeight;
+  const top = (document.getElementById('topbar').hidden ? 0 : 60) + SAT;
+  const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kb')) || 0;
+  if (sideMode()) return { top, bottom: 0, left: sheet.hidden ? 0 : sheet.getBoundingClientRect().right };
+  const bottom = sheet.hidden ? 0 : Math.min(sheetTargetH + kb, H * 0.62);
+  return { top, bottom, left: 0 };
+}
+function updateViewOffset() {
+  const W = stage.clientWidth, H = stage.clientHeight;
+  if (!W || !H) return;
+  const { top, bottom, left } = viewInsets();
+  const dy = Math.round((bottom - top) / 2), dx = -Math.round(left / 2);
+  for (const cam of [persp, ortho]) { cam.setViewOffset(W, H, dx, dy, W, H); cam.updateProjectionMatrix(); }
+  invalidate();
+}
+// reset for the next participant: no places, standard profile, overview
+function resetAll() {
+  hidePeek(); closeMore();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  nav.step = null; nav.plan = null;
+  setPlace('from', null, false); setPlace('to', null, false);
+  nav.profile = 'standard'; syncProfile();
+  nav.fadeOthers = false; document.getElementById('routeOnly').checked = false;
+  state.focus = null; syncStoreyButtons();
+  clearSel();
+  setView('overview');
+  writeHash();
+}
+// stop Safari zooming the page with two fingers over the panels (the 3D view has its own pinch)
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+// any touch, click or key keeps the view drawing for a moment
+for (const ev of ['pointerdown', 'pointermove', 'wheel', 'keydown', 'click', 'input'])
+  document.addEventListener(ev, () => invalidate(400), { capture: true, passive: true });
+
+document.getElementById('legend').innerHTML = `
+  <div>${legendIcon.stairs}Stairs</div>
+  <div>${legendIcon.escalator}Escalator, arrows run with it</div>
+  <div>${legendIcon.lift}Lift (shaft and stops)</div>
+  <div>${legendIcon.ramp}Ramp</div>
+  ${Object.values(GROUPS).map(g => `<div><span class="sw" style="background:var(${g.token})"></span>Tracks ${g.label}</div>`).join('')}
+  <div><span class="sw closed-sw"></span>Closed (SZU until 12.12.2026)</div>
+  <div><span class="sw" style="background:var(--wing); border:1.5px solid var(--divider)"></span>Shop wing (Nord-/Südtrakt)</div>
+  <div><span class="sw" style="background:var(--hall); border:1.5px solid var(--divider)"></span>Open hall (Querhalle, Haupthalle)</div>
+  <div><span class="sw" style="background:var(--route)"></span>Fastest route</div>
+  <div><span class="sw" style="background:repeating-linear-gradient(90deg, var(--route-sf) 0 5px, transparent 5px 8px)"></span>Step-free route</div>
+  <div><span class="sw" style="background:var(--route-conn)"></span>Stairs, escalator or lift on the route</div>
+  <div><span class="sw" style="background:var(--tram)"></span>Tram platform (OSM)</div>
+  <div><svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><path d="M2 8H20" stroke="var(--street)" stroke-width="1.5"/></svg>Path (OSM line)</div>`;
+document.getElementById('attribution').innerHTML = `Heights ×${VEX}. Data ${esc(D.meta.source_date)}: ${esc(D.meta.attribution)}.`;
+document.getElementById('about').innerHTML = `
+  <p>Station model and paths from <b>${fmtDay(D.meta.source_date)}</b>. Closures are applied by the date on this phone (today ${fmtDay(TODAY)}).</p>
+  <p>Routes are computed on the phone; nothing is sent or stored. Route times are estimates from the model.</p>
+  <p><button class="btn small" id="aboutReset">New route (reset)</button></p>`;
+document.getElementById('aboutReset').onclick = resetAll;
+
+// theme changes
+const reTheme = () => recolor();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', reTheme);
+new MutationObserver(reTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ------------------------------------------------------------------ resize & loop
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h); labelRenderer.setSize(w, h);
+  persp.aspect = w / h; persp.updateProjectionMatrix();
+  if (camera === ortho) { const hw = (ortho.right - ortho.left) / 2, hh = (ortho.top - ortho.bottom) / 2; const asp = w / h; const nhw = Math.max(hw, hh * asp); const nhh = nhw / asp; ortho.left = -nhw; ortho.right = nhw; ortho.top = nhh; ortho.bottom = -nhh; ortho.updateProjectionMatrix(); }
+  routeMats.forEach(m => m.resolution.set(w, h));
+  updateViewOffset();
+  invalidate();
+}
+window.addEventListener('resize', () => { resize(); applySnap(); });
+
+for (const s of D.storeys) storeyGroups[s.id].position.y = storeyOffset(s.order);
+document.getElementById('loading').remove();
+document.getElementById('topbar').hidden = false;
+sheet.hidden = false;
+SAT = cssPx('--sat');
+resize();
+layoutConnectors();
+renderIntro();
+setView('overview');
+recolor();
+if (NAV) { syncProfile(); syncRouteButtons(); readHash(); }
+let lastAnim = 0, frameCount = 0;
+renderer.setAnimationLoop((t) => {
+  lastT = t;
+  const flying = stepFlight();
+  const moved = controls.update();
+  let draw = needsRender || flying || moved || performance.now() < renderUntil;
+  const run = animatedEsc();
+  if (run && run.size && !reduceMotion && t - lastAnim > 40) { lastAnim = t; animateChevrons(t); draw = true; }   // ~25 fps for the arrows
+  if (!draw) return;
+  needsRender = false; frameCount++;
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+});
+window.__hb = { state, nav, NAV, routeTest, setPlace, computeRoute, enterStep, exitStep, resetAll, SHOPS, selectShop, selectArea, setView, frames: () => frameCount, D, camera: () => camera, controls: () => controls, project: (i) => { const v = nodeWorld(i).project(camera); return [(v.x + 1) / 2 * stage.clientWidth, (1 - v.y) / 2 * stage.clientHeight]; } };   // for debugging in the console
+</script>
+</body>
+</html>

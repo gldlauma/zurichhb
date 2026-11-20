@@ -1,0 +1,30 @@
+{
+  "name": "Zürich HB Wayfinding",
+  "short_name": "HB Wayfinding",
+  "description": "3D wayfinding model of Zürich HB: routes between tracks, tram stops and exits, with stairs, escalators and lifts.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e8ecf0",
+  "theme_color": "#16202a",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
