@@ -1049,12 +1049,15 @@ function recolor() {
 
 // ------------------------------------------------------------------ routing (same profiles as validate_graph.py)
 const PROFILES = {
-  standard: () => true,
+  // mobile (2026-11-24): Standard leaves out lifts, as most people at Zürich HB take stairs and escalators;
+  // only where no way without a lift exists does it fall back to with_lifts (= validate_graph.py "standard")
+  standard: (t) => t !== T.lift,
+  with_lifts: () => true,
   no_stairs: (t) => t !== T.stairs,
   step_free: (t) => t === T.walkway || t === T.ramp || t === T.lift,
 };
 const PROFILE_TEXT = {
-  standard: 'Stairs, escalators (in their direction of travel) and lifts.',
+  standard: 'Stairs and escalators (in their direction of travel); lifts only where there is no other way.',
   no_stairs: 'No fixed stairs: escalators (in their direction of travel), lifts and ramps.',
   step_free: 'Step-free: lifts and ramps only, no stairs or escalators.',
 };
@@ -1072,6 +1075,12 @@ function adjacency(profile, closures = false) {
     if (!(flags & 1)) adj[b].push([a, time, k, -1]);
   });
   return (adjCache[key] = adj);
+}
+// a route for a profile; Standard without lifts, and with lifts only where there is no other way (marked liftFallback)
+function findRoute(sources, targets, profile, closures = false) {
+  let r = dijkstra(sources, targets, profile, closures);
+  if (!r && profile === 'standard') { r = dijkstra(sources, targets, 'with_lifts', closures); if (r) r.liftFallback = true; }
+  return r;
 }
 function dijkstra(sources, targets, profile, closures = false) {
   const adj = adjacency(profile, closures);
@@ -1194,14 +1203,14 @@ function selectArea(ai, tracks = null) {
   // fastest routes from the Querhalle and from every other platform group
   currentRoutes = [];
   const q = D.meta.querhalle_node;
-  const std = dijkstra([q], targets, 'standard');
+  const std = findRoute([q], targets, 'standard');
   const sf = dijkstra([q], targets, 'step_free');
   currentRoutes.push({ label: 'From the Querhalle', route: std, token: '--route', width: 5 });
   currentRoutes.push({ label: 'From the Querhalle, step-free', route: sf, token: '--route-sf', width: 4, dashed: true, stepfree: true });
   const groups = {};
   D.areas.forEach((b, bi) => { if (b.kind === 'platform' && b.group !== a.group) (groups[b.group] ||= []).push(...platformNodes(b)); });
   for (const [g, nodes] of Object.entries(groups)) {
-    const r = dijkstra(nodes, targets, 'standard');
+    const r = findRoute(nodes, targets, 'standard');
     currentRoutes.push({ label: `From ${GROUPS[g].name}`, route: r, token: '--route', width: 2.5, other: true });
   }
   for (const r of currentRoutes) if (r.route) for (const [k] of r.route.path) {
@@ -1577,12 +1586,12 @@ function computeRoute(fit) {
   let r = null;
   if (nav.from.id === nav.to.id) nav.message = 'Start and destination are the same place.';
   else {
-    r = dijkstra(startNodes(nav.from), nav.to.nodes, nav.profile, CLOSED_EDGES_ACTIVE);
+    r = findRoute(startNodes(nav.from), nav.to.nodes, nav.profile, CLOSED_EDGES_ACTIVE);
     if (!r) {
       const closedP = [nav.from, nav.to].find(p => p.closure && ACTIVE_CLOSURES.some(c => c.id === p.closure));
       const c = closedP && ACTIVE_CLOSURES.find(c => c.id === closedP.closure);
       if (c) nav.message = `${closedP.label} is closed until ${fmtDay(closureEnd(c))}${c.reopens ? ` (reopens ${fmtDay(c.reopens)})` : ''}.`;
-      else if (nav.profile !== 'standard' && dijkstra(startNodes(nav.from), nav.to.nodes, 'standard', CLOSED_EDGES_ACTIVE))
+      else if (nav.profile !== 'standard' && findRoute(startNodes(nav.from), nav.to.nodes, 'standard', CLOSED_EDGES_ACTIVE))
         nav.message = `There is no ${PROFILE_LABEL[nav.profile].toLowerCase()} route between these places in the model. A standard route exists.`;
       else nav.message = 'There is no route between these places in the model.';
     }
@@ -1623,7 +1632,8 @@ function renderSummaryRow() {
 function renderRouteCard() {
   const r = nav.route;
   renderSummaryRow();
-  const notes = [nav.from, nav.to].filter(p => p && p.note).map(p => `<div class="warn">${esc(p.label)}: ${esc(p.note)}</div>`).join('');
+  const notes = [nav.from, nav.to].filter(p => p && p.note).map(p => `<div class="warn">${esc(p.label)}: ${esc(p.note)}</div>`).join('')
+    + (r && r.liftFallback ? '<p class="fine"><b>Uses a lift:</b> there is no way between these places with stairs and escalators only.</p>' : '');
   let body = '';
   if (!r) body = `<div class="warn">${esc(nav.message || 'No route.')}</div>
     <div class="actions"><button class="btn" id="changeBtn">Change</button><button class="btn" id="newBtn">New route</button></div>`;
@@ -1790,11 +1800,11 @@ function readHash() {
 // for the browser test: the page's own route between two places, as validate_graph.py reports it
 function routeTest(fromId, toId, profile, closures = false) {
   const f = placeById.get(fromId), t = placeById.get(toId);
-  const r = dijkstra(startNodes(f), t.nodes, profile, closures);
+  const r = findRoute(startNodes(f), t.nodes, profile, closures);
   if (!r) return null;
   const lifts = [];
   for (const [k] of r.path) if (TYPES[E[k][2]] === 'lift') { const lf = L[liftByNode.get(E[k][0])]; const id = lf ? (lf.sbb || lf.id) : '?'; if (!lifts.includes(id)) lifts.push(id); }
-  return { time: r.time, lifts };
+  return { time: r.time, lifts, liftFallback: !!r.liftFallback };
 }
 if (!NAV) { document.getElementById('routeSec').hidden = true; }
 

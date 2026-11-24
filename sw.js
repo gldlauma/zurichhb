@@ -1,6 +1,6 @@
 // Service worker for the Zürich HB wayfinding page (written by app/_tools/build_site.py; do not edit by hand).
 // Keeps the page, the data and three.js on the phone, so the page also opens without a connection.
-const VERSION = 'aee116f097e7';
+const VERSION = 'a9ff6fdf7bf6';
 const CACHE = 'hb-wayfinding-' + VERSION;
 const FONTS = 'hb-fonts';
 const PRECACHE = [
